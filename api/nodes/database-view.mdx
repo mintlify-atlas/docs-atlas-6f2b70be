@@ -1,0 +1,322 @@
+---
+title: Database View Node
+description: Custom views for databases with filtering, sorting, and layout options
+---
+
+The **Database View** node represents a specific view of a database in Brainbox. Each view can have its own layout (table/board/calendar), field configuration, filters, and sorting.
+
+## Attributes Schema
+
+<ParamField path="type" type="literal" required>
+  Must be `"database_view"`
+</ParamField>
+
+<ParamField path="parentId" type="string" required>
+  ID of the parent database node
+</ParamField>
+
+<ParamField path="layout" type="enum" required>
+  View layout type:
+  - `table` - Spreadsheet-like table view
+  - `board` - Kanban board view
+  - `calendar` - Calendar view
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Display name of the view
+</ParamField>
+
+<ParamField path="avatar" type="string | null" optional>
+  Icon or emoji for the view
+</ParamField>
+
+<ParamField path="index" type="string" required>
+  Fractional index for view ordering
+</ParamField>
+
+<ParamField path="fields" type="Record<string, DatabaseViewFieldAttributes>" optional>
+  Per-field configuration for this view
+  
+  <Expandable title="DatabaseViewFieldAttributes">
+    <ResponseField name="id" type="string" required>
+      Field ID
+    </ResponseField>
+    <ResponseField name="width" type="number | null" optional>
+      Column width in pixels (table view)
+    </ResponseField>
+    <ResponseField name="display" type="boolean | null" optional>
+      Whether the field is visible in this view
+    </ResponseField>
+    <ResponseField name="index" type="string | null" optional>
+      Fractional index for field ordering
+    </ResponseField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="filters" type="Record<string, DatabaseViewFilterAttributes>" optional>
+  Filter configuration for this view
+  
+  <Expandable title="DatabaseViewFilterAttributes">
+    **Field Filter:**
+    <ResponseField name="type" type="'field'" required>
+      Field-level filter
+    </ResponseField>
+    <ResponseField name="id" type="string" required>
+      Filter ID
+    </ResponseField>
+    <ResponseField name="fieldId" type="string" required>
+      Field to filter on
+    </ResponseField>
+    <ResponseField name="operator" type="string" required>
+      Filter operator (e.g., `equals`, `contains`, `greater_than`)
+    </ResponseField>
+    <ResponseField name="value" type="string | number | boolean | string[]" optional>
+      Filter value
+    </ResponseField>
+    
+    **Group Filter:**
+    <ResponseField name="type" type="'group'" required>
+      Grouped filters
+    </ResponseField>
+    <ResponseField name="id" type="string" required>
+      Group ID
+    </ResponseField>
+    <ResponseField name="operator" type="'and' | 'or'" required>
+      How to combine filters in the group
+    </ResponseField>
+    <ResponseField name="filters" type="DatabaseViewFieldFilterAttributes[]" required>
+      Field filters in this group
+    </ResponseField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="sorts" type="Record<string, DatabaseViewSortAttributes>" optional>
+  Sort configuration for this view
+  
+  <Expandable title="DatabaseViewSortAttributes">
+    <ResponseField name="id" type="string" required>
+      Sort ID
+    </ResponseField>
+    <ResponseField name="fieldId" type="string" required>
+      Field to sort by
+    </ResponseField>
+    <ResponseField name="direction" type="'asc' | 'desc'" required>
+      Sort direction
+    </ResponseField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="groupBy" type="string | null" optional>
+  Field ID to group records by (board/table views)
+</ParamField>
+
+<ParamField path="swimlanesBy" type="string | null" optional>
+  Field ID for swimlanes (board view only)
+</ParamField>
+
+<ParamField path="nameWidth" type="number | null" optional>
+  Width of the name column in pixels (table view)
+</ParamField>
+
+### Example
+
+```typescript
+const viewAttributes: DatabaseViewAttributes = {
+  type: 'database_view',
+  parentId: 'database_abc123',
+  layout: 'board',
+  name: 'Sprint Board',
+  avatar: '🏃',
+  index: 'a0',
+  groupBy: 'field_status',
+  fields: {
+    'field_name': { id: 'field_name', width: 200, display: true, index: 'a0' },
+    'field_assignee': { id: 'field_assignee', width: 150, display: true, index: 'a1' },
+    'field_date': { id: 'field_date', width: 120, display: false, index: 'a2' }
+  },
+  filters: {
+    'filter_1': {
+      type: 'field',
+      id: 'filter_1',
+      fieldId: 'field_status',
+      operator: 'not_equals',
+      value: 'Done'
+    }
+  },
+  sorts: {
+    'sort_1': {
+      id: 'sort_1',
+      fieldId: 'field_priority',
+      direction: 'desc'
+    }
+  }
+};
+```typescript
+
+## Permissions
+
+### Create View (`canCreate`)
+
+**Requirements:**
+- User must have at least `member` role in the parent database's node tree
+- Parent database must exist
+
+**Source:** `packages/core/src/registry/nodes/database-view.ts:95-110`
+
+### Update Attributes (`canUpdateAttributes`)
+
+**Requirements:**
+- User must have at least `member` role in the parent database's node tree
+
+**Source:** `packages/core/src/registry/nodes/database-view.ts:111-126`
+
+### Update Document (`canUpdateDocument`)
+
+**Permission:** Not allowed
+
+Database views do not have editable documents.
+
+### Delete View (`canDelete`)
+
+**Requirements:**
+- User must have at least `member` role in the parent database's node tree
+
+**Source:** `packages/core/src/registry/nodes/database-view.ts:130-145`
+
+### React to View (`canReact`)
+
+**Permission:** Not allowed
+
+Reactions are not supported on database views.
+
+## Text Extraction
+
+Only the view name is indexed for search.
+
+```typescript
+extractText: (_, attributes) => ({
+  name: attributes.name,
+  attributes: null
+})
+```typescript
+
+## Usage
+
+### Create a Table View
+
+```typescript
+import { createNode } from '@brainbox/client/mutations';
+import { generateFractionalIndex } from '@brainbox/core';
+
+await createNode({
+  rootId: workspaceId,
+  type: 'database_view',
+  attributes: {
+    type: 'database_view',
+    parentId: databaseId,
+    layout: 'table',
+    name: 'All Items',
+    index: generateFractionalIndex(null, null),
+    fields: {
+      [field1Id]: { id: field1Id, width: 200, display: true, index: 'a0' },
+      [field2Id]: { id: field2Id, width: 150, display: true, index: 'a1' }
+    }
+  }
+});
+```typescript
+
+### Create a Filtered Board View
+
+```typescript
+await createNode({
+  rootId: workspaceId,
+  type: 'database_view',
+  attributes: {
+    type: 'database_view',
+    parentId: databaseId,
+    layout: 'board',
+    name: 'Active Tasks',
+    avatar: '📋',
+    index: generateFractionalIndex(null, null),
+    groupBy: statusFieldId,
+    filters: {
+      'active_filter': {
+        type: 'field',
+        id: 'active_filter',
+        fieldId: statusFieldId,
+        operator: 'not_equals',
+        value: 'Done'
+      }
+    },
+    sorts: {
+      'priority_sort': {
+        id: 'priority_sort',
+        fieldId: priorityFieldId,
+        direction: 'desc'
+      }
+    }
+  }
+});
+```typescript
+
+### Update View Layout
+
+```typescript
+import { updateNode } from '@brainbox/client/mutations';
+
+await updateNode({
+  id: viewId,
+  rootId: workspaceId,
+  attributes: {
+    layout: 'calendar'
+  }
+});
+```typescript
+
+### Query Database Views
+
+```typescript
+import { queryNodes } from '@brainbox/client/queries';
+
+const views = await queryNodes({
+  rootId: workspaceId,
+  parentId: databaseId,
+  type: 'database_view'
+});
+```typescript
+
+## View Layouts
+
+### Table View
+
+- Spreadsheet-like display
+- Configurable column widths (`nameWidth`, `fields[].width`)
+- Show/hide columns (`fields[].display`)
+- Multi-level sorting
+- Filtering with complex conditions
+
+### Board View (Kanban)
+
+- Card-based display
+- Group records by a select field (`groupBy`)
+- Optional swimlanes (`swimlanesBy`)
+- Drag-and-drop reordering
+- Status-based workflows
+
+### Calendar View
+
+- Date-based display
+- Requires a date field for positioning
+- Month/week/day views
+- Event-style record cards
+
+## Related Nodes
+
+- [Database](/api/nodes/database) - Parent database node
+- [Record](/api/nodes/record) - Records displayed in the view
+- [Field](/api/nodes/field) - Fields configured in the view
+
+## Source Code
+
+- **Definition**: `packages/core/src/registry/nodes/database-view.ts`
+- **Export**: `@brainbox/core`

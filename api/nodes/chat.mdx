@@ -1,0 +1,145 @@
+---
+title: Chat Node
+description: Direct messaging conversations between users
+---
+
+The **Chat** node represents a direct message (DM) conversation between one or two users in Brainbox. It supports both 1-on-1 chats and self-chat.
+
+## Attributes Schema
+
+Chat nodes have minimal attributes, focusing on collaborator permissions.
+
+<ParamField path="type" type="literal" required>
+  Must be `"chat"`
+</ParamField>
+
+<ParamField path="collaborators" type="Record<string, NodeRole>" required>
+  Map of user IDs to their roles in the chat.
+  
+  - **Self-chat**: 1 collaborator (the user themselves)
+  - **Regular chat**: 2 collaborators (two different users)
+  - All collaborators have equal permissions
+</ParamField>
+
+### Example
+
+```typescript
+const chatAttributes: ChatAttributes = {
+  type: 'chat',
+  collaborators: {
+    'user_01234': 'admin',
+    'user_56789': 'admin'
+  }
+};
+```typescript
+
+## Permissions
+
+### Create Chat (`canCreate`)
+
+**Requirements:**
+- User must have at least `guest` role in the workspace
+- User must be included in the collaborators
+- Collaborator count must be 1 (self-chat) or 2 (regular chat)
+- For self-chat, the single collaborator must be the user themselves
+
+**Source:** `packages/core/src/registry/nodes/chat.ts:16-46`
+
+### Update Attributes (`canUpdateAttributes`)
+
+**Permission:** Not allowed
+
+Chats are immutable after creation. Users cannot change chat collaborators or attributes.
+
+### Update Document (`canUpdateDocument`)
+
+**Permission:** Not allowed
+
+Chats do not have an editable document. Messages are created as child `message` nodes.
+
+### Delete Chat (`canDelete`)
+
+**Permission:** Not allowed
+
+Chats cannot be deleted by users. They persist for message history.
+
+### React to Chat (`canReact`)
+
+**Permission:** Not allowed
+
+Reactions are not supported on chat nodes (only on messages).
+
+## Text Extraction
+
+Chats do not contribute to search indexing.
+
+```typescript
+extractText: () => null
+```typescript
+
+## Usage
+
+### Create a Direct Message Chat
+
+```typescript
+import { createNode } from '@brainbox/client/mutations';
+
+// Create a 1-on-1 chat
+await createNode({
+  rootId: workspaceId,
+  type: 'chat',
+  attributes: {
+    type: 'chat',
+    collaborators: {
+      [currentUserId]: 'admin',
+      [otherUserId]: 'admin'
+    }
+  }
+});
+```typescript
+
+### Create a Self-Chat
+
+```typescript
+// Create a chat with yourself
+await createNode({
+  rootId: workspaceId,
+  type: 'chat',
+  attributes: {
+    type: 'chat',
+    collaborators: {
+      [currentUserId]: 'admin'
+    }
+  }
+});
+```typescript
+
+### Query Chats
+
+```typescript
+import { queryNodes } from '@brainbox/client/queries';
+
+const chats = await queryNodes({
+  rootId: workspaceId,
+  type: 'chat'
+});
+```typescript
+
+## Related Nodes
+
+- [Message](/api/nodes/message) - Individual messages within a chat
+- [Channel](/api/nodes/channel) - Team channels (multi-user conversations)
+
+## Differences from Channels
+
+| Feature | Chat | Channel |
+|---------|------|----------|
+| Collaborators | 1-2 users only | Unlimited users |
+| Visibility | Private between participants | Public or private to team |
+| Immutable | Yes, cannot change participants | Admins can manage members |
+| Use Case | Direct messaging | Team discussions |
+
+## Source Code
+
+- **Definition**: `packages/core/src/registry/nodes/chat.ts`
+- **Export**: `@brainbox/core`

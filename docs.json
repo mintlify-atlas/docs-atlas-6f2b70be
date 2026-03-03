@@ -122,9 +122,11 @@
               "api/nodes/folder",
               "api/nodes/page",
               "api/nodes/database",
+              "api/nodes/database-view",
               "api/nodes/record",
               "api/nodes/field",
               "api/nodes/channel",
+              "api/nodes/chat",
               "api/nodes/message",
               "api/nodes/file"
             ]
