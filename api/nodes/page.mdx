@@ -1,0 +1,106 @@
+---
+title: 'Page Node'
+description: 'Rich text document with collaborative editing'
+---
+
+## Overview
+
+The Page node represents a rich text document in Brainbox. Pages support real-time collaborative editing using CRDT-based synchronization (Yjs) and can contain formatted text, images, embeds, and other rich content.
+
+## Attributes Schema
+
+```typescript
+z.object({
+  type: z.literal('page'),
+  name: z.string(),
+  avatar: z.string().nullable().optional(),
+  parentId: z.string(),
+  index: z.string().nullable().optional(),
+})
+```
+
+<ParamField path="type" type="literal" required>
+  Must be `'page'`
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  The title/name of the page
+</ParamField>
+
+<ParamField path="avatar" type="string | null">
+  Optional avatar URL or emoji for the page
+</ParamField>
+
+<ParamField path="parentId" type="string" required>
+  ID of the parent node (space, folder, or database)
+</ParamField>
+
+<ParamField path="index" type="string | null">
+  Fractional index for ordering pages among siblings
+</ParamField>
+
+## Permissions
+
+### canCreate
+
+**Rules:**
+- Tree must not be empty (cannot create at root)
+- User must have at least `'member'` role in the parent
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/page.ts:22-37`
+
+### canUpdateAttributes
+
+**Rules:**
+- Tree must not be empty
+- User must have at least `'member'` role
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/page.ts:38-53`
+
+### canUpdateDocument
+
+**Rules:**
+- Tree must not be empty
+- User must have at least `'member'` role
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/page.ts:54-69`
+
+### canDelete
+
+**Rules:**
+- Tree must not be empty
+- User must have at least `'member'` role
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/page.ts:70-85`
+
+### canReact
+
+**Rules:**
+- Always returns `false` (pages cannot be reacted to)
+
+## Document Schema
+
+Pages use the `richTextContentSchema` for their document content, supporting rich text formatting, blocks, and embedded content through TipTap/ProseMirror.
+
+```typescript
+documentSchema: richTextContentSchema
+```
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/documents/rich-text.ts`
+
+## Text Extraction
+
+```typescript
+{
+  name: attributes.name,
+  attributes: null
+}
+```
+
+The page name is extracted. Document content is handled separately through the document synchronization system.
+
+## Mentions
+
+Pages do not extract mentions from attributes. Always returns `[]`.
+
+Mentions in the page document are extracted through the document synchronization system.

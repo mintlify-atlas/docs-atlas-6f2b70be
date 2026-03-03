@@ -1,0 +1,431 @@
+---
+title: Workspaces
+description: Workspace and user management endpoints
+---
+
+## Create Workspace
+
+<Card title="POST /api/client/workspaces" icon="plus">
+  Create a new workspace
+</Card>
+
+### Authentication
+
+Requires valid JWT token in `Authorization` header.
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  Workspace name
+</ParamField>
+
+<ParamField body="description" type="string | null">
+  Workspace description
+</ParamField>
+
+<ParamField body="avatar" type="string | null">
+  Avatar URL or ID
+</ParamField>
+
+### Request Schema
+
+```typescript
+export const workspaceCreateInputSchema = z.object({
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  avatar: z.string().nullable().optional(),
+});
+```
+
+### Response
+
+<ResponseField name="id" type="string">
+  Workspace ID
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Workspace name
+</ResponseField>
+
+<ResponseField name="description" type="string | null">
+  Workspace description
+</ResponseField>
+
+<ResponseField name="avatar" type="string | null">
+  Avatar URL or ID
+</ResponseField>
+
+<ResponseField name="user" type="object">
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      User ID in this workspace
+    </ResponseField>
+    <ResponseField name="accountId" type="string">
+      Account ID
+    </ResponseField>
+    <ResponseField name="role" type="WorkspaceRole">
+      User role: `owner`, `admin`, `member`, `viewer`, `guest`, or `none`
+    </ResponseField>
+    <ResponseField name="storageLimit" type="string">
+      Storage limit in bytes (string representation)
+    </ResponseField>
+    <ResponseField name="maxFileSize" type="string">
+      Maximum file size in bytes (string representation)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Error Codes
+
+- `400` - `WorkspaceNameRequired`: Workspace name is required
+- `400` - `AccountNotFound`: Account not found
+
+---
+
+## Get Workspace
+
+<Card title="GET /api/client/workspaces/:workspaceId" icon="folder-open">
+  Get workspace details
+</Card>
+
+### Authentication
+
+Requires valid JWT token in `Authorization` header.
+
+### Path Parameters
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+### Response
+
+Same schema as Create Workspace response.
+
+### Error Codes
+
+- `400` - `WorkspaceNotFound`: Workspace not found
+- `403` - `WorkspaceNoAccess`: User does not have access to workspace
+
+---
+
+## Update Workspace
+
+<Card title="PATCH /api/client/workspaces/:workspaceId" icon="pen">
+  Update workspace details
+</Card>
+
+### Authentication
+
+Requires valid JWT token in `Authorization` header.
+
+### Authorization
+
+Only users with `owner` role can update workspaces.
+
+### Path Parameters
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  Workspace name
+</ParamField>
+
+<ParamField body="description" type="string | null">
+  Workspace description
+</ParamField>
+
+<ParamField body="avatar" type="string | null">
+  Avatar URL or ID
+</ParamField>
+
+### Request Schema
+
+```typescript
+export const workspaceUpdateInputSchema = z.object({
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  avatar: z.string().nullable().optional(),
+});
+```
+
+### Response
+
+Returns updated workspace object (same schema as Get Workspace).
+
+### Behavior
+
+- Updates workspace metadata
+- Sets `updated_at` timestamp
+- Sets `updated_by` to current user ID
+- Publishes `workspace.updated` event
+
+### Error Codes
+
+- `403` - `WorkspaceUpdateNotAllowed`: Only owners can update workspaces
+- `404` - `WorkspaceNotFound`: Workspace not found
+- `500` - `WorkspaceUpdateFailed`: Failed to update workspace
+
+---
+
+## Delete Workspace
+
+<Card title="DELETE /api/client/workspaces/:workspaceId" icon="trash">
+  Delete a workspace
+</Card>
+
+### Authentication
+
+Requires valid JWT token in `Authorization` header.
+
+### Authorization
+
+Only users with `owner` role can delete workspaces.
+
+### Path Parameters
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+### Response
+
+Returns deleted workspace object.
+
+### Behavior
+
+- Deletes workspace from database
+- Schedules background cleanup job (`workspace.clean`)
+- Cleanup job has 5 retry attempts with exponential backoff
+- Publishes `workspace.deleted` event
+
+### Error Codes
+
+- `403` - `WorkspaceDeleteNotAllowed`: Only owners can delete workspaces
+- `404` - `WorkspaceNotFound`: Workspace not found
+
+---
+
+## Invite Users
+
+<Card title="POST /api/client/workspaces/:workspaceId/users" icon="user-plus">
+  Invite users to workspace
+</Card>
+
+### Authentication
+
+Requires valid JWT token in `Authorization` header.
+
+### Authorization
+
+Only users with `owner` or `admin` role can invite users.
+
+### Path Parameters
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+### Request Body
+
+<ParamField body="users" type="array" required>
+  Array of user objects to invite
+  <Expandable title="User object">
+    <ParamField body="email" type="string" required>
+      User email address
+    </ParamField>
+    <ParamField body="role" type="WorkspaceRole" required>
+      User role: `owner`, `admin`, `member`, `viewer`, `guest`, or `none`
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Request Schema
+
+```typescript
+export const usersCreateInputSchema = z.object({
+  users: z.array(z.object({
+    email: z.string().email(),
+    role: workspaceRoleSchema,
+  })),
+});
+```
+
+### Response
+
+<ResponseField name="users" type="array">
+  Successfully created/existing users
+  <Expandable title="User object">
+    <ResponseField name="id" type="string">
+      User ID
+    </ResponseField>
+    <ResponseField name="email" type="string">
+      User email
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      User name
+    </ResponseField>
+    <ResponseField name="avatar" type="string | null">
+      User avatar
+    </ResponseField>
+    <ResponseField name="role" type="WorkspaceRole">
+      User role
+    </ResponseField>
+    <ResponseField name="customName" type="string | null">
+      Custom display name in workspace
+    </ResponseField>
+    <ResponseField name="customAvatar" type="string | null">
+      Custom avatar in workspace
+    </ResponseField>
+    <ResponseField name="createdAt" type="string">
+      ISO 8601 timestamp
+    </ResponseField>
+    <ResponseField name="updatedAt" type="string | null">
+      ISO 8601 timestamp
+    </ResponseField>
+    <ResponseField name="revision" type="string">
+      User revision number
+    </ResponseField>
+    <ResponseField name="status" type="UserStatus">
+      User status: `Active` (1) or `Removed` (2)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="errors" type="array">
+  Failed user invitations
+  <Expandable title="Error object">
+    <ResponseField name="email" type="string">
+      User email that failed
+    </ResponseField>
+    <ResponseField name="error" type="string">
+      Error message
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Behavior
+
+- **Batch processing**: Efficiently handles multiple users
+- **Creates missing accounts**: Automatically creates pending accounts for new emails
+- **Idempotent**: Returns existing users if already in workspace
+- **Creates self-chat**: Each new user gets a private chat node
+- **Default limits**: Applies configured storage and file size limits
+- **Publishes events**: Emits `user.created` event for each new user
+
+### Error Codes
+
+- `400` - `UserEmailRequired`: User email is required
+- `403` - `UserInviteNoAccess`: Only owners and admins can invite users
+
+---
+
+## Update User Role
+
+<Card title="PATCH /api/client/workspaces/:workspaceId/users/:userId/role" icon="user-shield">
+  Update user's role in workspace
+</Card>
+
+### Authentication
+
+Requires valid JWT token in `Authorization` header.
+
+### Authorization
+
+Only users with `owner` or `admin` role can update user roles.
+
+### Path Parameters
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ParamField path="userId" type="string" required>
+  User ID to update
+</ParamField>
+
+### Request Body
+
+<ParamField body="role" type="WorkspaceRole" required>
+  New role: `owner`, `admin`, `member`, `viewer`, `guest`, or `none`
+</ParamField>
+
+### Request Schema
+
+```typescript
+export const userRoleUpdateInputSchema = z.object({
+  role: workspaceRoleSchema,
+});
+```
+
+### Response
+
+Returns updated user object (same schema as user in Invite Users response).
+
+### Role Hierarchy
+
+```typescript
+const ROLE_HIERARCHY = {
+  owner: 5,
+  admin: 4,
+  member: 3,
+  viewer: 2,
+  guest: 1,
+  none: 0,
+};
+```
+
+### Authorization Rules
+
+- **Owners** can set any role
+- **Admins** cannot modify users with equal or higher role
+- **Admins** cannot grant roles equal to or higher than their own
+- **Admins** cannot change their own role (except owners)
+- Setting role to `none` sets status to `UserStatus.Removed`
+
+### Behavior
+
+- Updates user role and status
+- Sets `updated_at` timestamp
+- Sets `updated_by` to current account ID
+- Publishes `user.updated` event
+
+### Error Codes
+
+- `403` - `UserUpdateNoAccess`: Insufficient permissions
+- `404` - `UserNotFound`: User not found
+
+---
+
+## Workspace Roles
+
+<Note>
+  Workspace roles determine what actions users can perform.
+</Note>
+
+| Role | Level | Description |
+|------|-------|-------------|
+| `owner` | 5 | Full control over workspace |
+| `admin` | 4 | Manage users and settings |
+| `member` | 3 | Create and edit content |
+| `viewer` | 2 | View-only access |
+| `guest` | 1 | Limited temporary access |
+| `none` | 0 | No access (removed) |
+
+---
+
+## User Status
+
+```typescript
+export enum UserStatus {
+  Active = 1,
+  Removed = 2,
+}
+```
+
+- **Active**: User has access to workspace
+- **Removed**: User has been removed from workspace

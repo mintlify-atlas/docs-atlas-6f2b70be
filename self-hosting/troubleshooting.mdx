@@ -1,0 +1,769 @@
+---
+title: Troubleshooting
+description: Common issues and solutions for self-hosted Brainbox deployments
+---
+
+This guide covers common issues you may encounter when self-hosting Brainbox and how to resolve them.
+
+## Database Connection Issues
+
+### Error: "Connection refused" or "ECONNREFUSED"
+
+**Symptoms:**
+- Server fails to start
+- Error message: `Error connecting to PostgreSQL: connect ECONNREFUSED`
+
+**Causes and Solutions:**
+
+<Steps>
+  <Step title="Verify PostgreSQL is running">
+    <CodeGroup>
+    ```bash Docker Compose
+    docker compose ps postgres
+    
+    # Should show "Up" status
+    # If not running:
+    docker compose up -d postgres
+    ```
+    
+    ```bash Kubernetes
+    kubectl get pods -l app.kubernetes.io/name=postgresql
+    
+    # Should show "Running" status
+    # If not running, check logs:
+    kubectl logs -l app.kubernetes.io/name=postgresql
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Check connection string">
+    Verify `POSTGRES_URL` in your environment configuration:
+
+    ```bash Docker Compose
+    # Should use service name, not localhost
+    POSTGRES_URL=postgres://user:pass@postgres:5432/colanode_db
+    # NOT: localhost or 127.0.0.1
+    ```
+
+    ```bash Kubernetes
+    # Should use Kubernetes service name
+    POSTGRES_URL=postgres://user:pass@my-brainbox-postgresql:5432/colanode_db
+    ```
+  </Step>
+
+  <Step title="Verify network connectivity">
+    <CodeGroup>
+    ```bash Docker Compose
+    # Services must be on the same network
+    docker network inspect brainbox_network
+    ```
+    
+    ```bash Kubernetes
+    # Check if service exists
+    kubectl get svc | grep postgresql
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Check password and credentials">
+    Ensure password in `POSTGRES_URL` matches the database password:
+
+    ```bash Docker Compose
+    # Check environment variables
+    docker compose config | grep POSTGRES
+    ```
+  </Step>
+</Steps>
+
+### Error: "password authentication failed"
+
+**Solution:**
+
+Password mismatch between server config and database.
+
+<CodeGroup>
+```bash Docker Compose
+# Stop services
+docker compose down
+
+# Edit .env to match passwords
+nano .env
+
+# Ensure POSTGRES_PASSWORD matches in:
+# 1. postgres service environment
+# 2. server POSTGRES_URL
+
+# Restart
+docker compose up -d
+```
+
+```bash Kubernetes
+# Check PostgreSQL secret
+kubectl get secret my-brainbox-postgresql -o jsonpath='{.data.postgres-password}' | base64 -d
+
+# Update Helm values to match
+helm upgrade brainbox ./chart \
+  --set postgresql.auth.password="correct-password"
+```
+</CodeGroup>
+
+### Error: "database does not exist"
+
+**Solution:**
+
+Database not created or wrong database name.
+
+<CodeGroup>
+```bash Docker Compose
+# Connect to PostgreSQL
+docker exec -it brainbox_postgres psql -U postgres
+
+# List databases
+\l
+
+# Create database if missing
+CREATE DATABASE colanode_db;
+
+# Grant permissions
+GRANT ALL PRIVILEGES ON DATABASE colanode_db TO colanode_user;
+
+# Exit
+\q
+```
+
+```bash Kubernetes
+# Connect to PostgreSQL pod
+kubectl exec -it my-brainbox-postgresql-0 -- psql -U postgres
+
+# List databases
+\l
+
+# Create database if missing
+CREATE DATABASE colanode_db;
+```
+</CodeGroup>
+
+### Database migration failures
+
+**Error:** "Migration failed" or "relation already exists"
+
+**Solution:**
+
+<Steps>
+  <Step title="Check migration status">
+    ```bash
+    docker compose logs server | grep migration
+    ```
+  </Step>
+
+  <Step title="Reset database (development only)">
+    <Warning>
+      This will delete all data. Only use in development.
+    </Warning>
+
+    ```bash Docker Compose
+    # Stop server
+    docker compose stop server
+    
+    # Connect to database
+    docker exec -it brainbox_postgres psql -U colanode_user -d colanode_db
+    
+    # Drop all tables
+    DROP SCHEMA public CASCADE;
+    CREATE SCHEMA public;
+    
+    # Restart server (will run migrations)
+    docker compose start server
+    ```
+  </Step>
+
+  <Step title="Manual migration fix">
+    Check server logs for specific migration errors:
+
+    ```bash
+    docker compose logs server | grep -A 10 "Migration error"
+    ```
+  </Step>
+</Steps>
+
+## Redis Connection Issues
+
+### Error: "Redis connection refused"
+
+**Solution:**
+
+<Steps>
+  <Step title="Verify Redis is running">
+    <CodeGroup>
+    ```bash Docker Compose
+    docker compose ps valkey
+    docker compose logs valkey
+    ```
+    
+    ```bash Kubernetes
+    kubectl get pods -l app.kubernetes.io/name=valkey
+    kubectl logs -l app.kubernetes.io/name=valkey
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Check Redis URL format">
+    ```bash
+    # Correct format with password
+    REDIS_URL=redis://:your_password@valkey:6379/0
+    
+    # Note the colon before password: ":password"
+    # NOT: redis://valkey:6379/0 (missing password)
+    ```
+  </Step>
+
+  <Step title="Test Redis connection">
+    <CodeGroup>
+    ```bash Docker Compose
+    docker exec -it brainbox_valkey valkey-cli -a your_password ping
+    # Should return: PONG
+    ```
+    
+    ```bash Kubernetes
+    kubectl exec -it my-brainbox-redis-master-0 -- redis-cli -a password ping
+    # Should return: PONG
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+### Error: "NOAUTH Authentication required"
+
+**Solution:**
+
+Redis password not provided or incorrect.
+
+```bash
+# Docker Compose: Check .env file
+VALKEY_PASSWORD=your_valkey_password
+
+# Ensure REDIS_URL includes password
+REDIS_URL=redis://:your_valkey_password@valkey:6379/0
+```
+
+## Storage (S3/MinIO) Issues
+
+### Error: "Access Denied" or "Invalid credentials"
+
+**Solution:**
+
+<Steps>
+  <Step title="Verify MinIO credentials">
+    <CodeGroup>
+    ```bash Docker Compose
+    # Check .env file
+    cat .env | grep MINIO
+    
+    # Credentials must match between:
+    # 1. MinIO service (MINIO_ROOT_USER/PASSWORD)
+    # 2. Server config (STORAGE_S3_ACCESS_KEY/SECRET_KEY)
+    ```
+    
+    ```bash Kubernetes
+    # Check MinIO secret
+    kubectl get secret my-brainbox-minio -o yaml
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Test MinIO access">
+    Access MinIO console:
+    
+    - Docker Compose: http://localhost:9001
+    - Kubernetes: `kubectl port-forward svc/my-brainbox-minio 9001:9001`
+    
+    Login with credentials from configuration.
+  </Step>
+
+  <Step title="Verify bucket exists">
+    MinIO console → Buckets → should see "brainbox" bucket
+    
+    If missing:
+    
+    ```bash Docker Compose
+    docker compose restart minio
+    # The entrypoint command creates the bucket on startup
+    ```
+  </Step>
+</Steps>
+
+### Error: "Bucket does not exist"
+
+**Solution:**
+
+Create the bucket manually:
+
+<CodeGroup>
+```bash MinIO Console
+1. Access MinIO console (http://localhost:9001)
+2. Login with MINIO_ROOT_USER/PASSWORD
+3. Click "Create Bucket"
+4. Name: "brainbox"
+5. Click "Create"
+```
+
+```bash mc (MinIO Client)
+# Install mc
+wget https://dl.min.io/client/mc/release/linux-amd64/mc
+chmod +x mc
+
+# Configure
+./mc alias set local http://localhost:9000 minioadmin your_password
+
+# Create bucket
+./mc mb local/brainbox
+```
+</CodeGroup>
+
+### Error: "Connection timeout" to S3 endpoint
+
+**Solution:**
+
+Check endpoint URL format:
+
+```bash
+# MinIO (Docker/Kubernetes): Use http://, not https://
+STORAGE_S3_ENDPOINT=http://minio:9000
+STORAGE_S3_FORCE_PATH_STYLE=true
+
+# AWS S3: Use https://
+STORAGE_S3_ENDPOINT=https://s3.amazonaws.com
+STORAGE_S3_FORCE_PATH_STYLE=false
+```
+
+## Port Conflicts
+
+### Error: "Port already in use" or "Address already in use"
+
+**Solution:**
+
+<Steps>
+  <Step title="Find process using the port">
+    <CodeGroup>
+    ```bash Linux/macOS
+    # Check port 4000 (web)
+    lsof -i :4000
+    
+    # Check port 3000 (server)
+    lsof -i :3000
+    
+    # Check port 5432 (postgres)
+    lsof -i :5432
+    ```
+    
+    ```bash Windows
+    netstat -ano | findstr :4000
+    netstat -ano | findstr :3000
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Stop conflicting process or change port">
+    Option 1: Stop the conflicting process
+
+    ```bash
+    # Kill process by PID (from lsof output)
+    kill -9 <PID>
+    ```
+
+    Option 2: Change Brainbox ports in `docker-compose.yaml`:
+
+    ```yaml docker-compose.yaml
+    services:
+      web:
+        ports:
+          - '8080:80'  # Change 4000 to 8080
+      
+      server:
+        ports:
+          - '8000:3000'  # Change 3000 to 8000
+    ```
+  </Step>
+</Steps>
+
+## Container/Pod Issues
+
+### Container keeps restarting
+
+**Diagnosis:**
+
+<CodeGroup>
+```bash Docker Compose
+# Check container status
+docker compose ps
+
+# View logs
+docker compose logs server --tail=100
+
+# Check exit code
+docker inspect brainbox_server | grep -A 5 State
+```
+
+```bash Kubernetes
+# Check pod status
+kubectl get pods
+
+# Describe pod for events
+kubectl describe pod brainbox-server-abc123
+
+# View logs
+kubectl logs brainbox-server-abc123 --previous
+```
+</CodeGroup>
+
+**Common causes:**
+
+1. **Environment variable errors**: Check logs for configuration errors
+2. **Dependency not ready**: Database or Redis not available
+3. **Out of memory**: Check resource limits
+4. **Failed health checks**: Server not responding on expected port
+
+### Out of memory errors
+
+**Solution:**
+
+<CodeGroup>
+```bash Docker Compose
+# Increase memory limits in docker-compose.yaml
+services:
+  server:
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+```
+
+```bash Kubernetes
+# Update values.yaml
+brainbox:
+  resources:
+    requests:
+      memory: 1Gi
+    limits:
+      memory: 2Gi
+
+# Apply changes
+helm upgrade brainbox ./chart -f values-prod.yaml
+```
+</CodeGroup>
+
+## WebSocket Connection Issues
+
+### Error: "WebSocket connection failed"
+
+**Symptoms:**
+- Real-time updates not working
+- "Connection lost" messages in UI
+- Browser console shows WebSocket errors
+
+**Solution:**
+
+<Steps>
+  <Step title="Check reverse proxy WebSocket support">
+    If using nginx:
+
+    ```nginx nginx.conf
+    location /socket.io/ {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }
+    ```
+  </Step>
+
+  <Step title="Verify server mode for multiple replicas">
+    If running multiple server instances:
+
+    ```bash
+    SERVER_MODE=cluster  # Required for WebSocket sync across instances
+    ```
+  </Step>
+
+  <Step title="Check firewall rules">
+    Ensure WebSocket ports are not blocked by firewall.
+  </Step>
+</Steps>
+
+## Performance Issues
+
+### Slow queries or timeouts
+
+**Solution:**
+
+<Steps>
+  <Step title="Check database performance">
+    ```bash Docker Compose
+    docker exec -it brainbox_postgres psql -U colanode_user -d colanode_db
+    
+    -- Check slow queries
+    SELECT pid, now() - pg_stat_activity.query_start AS duration, query 
+    FROM pg_stat_activity 
+    WHERE state = 'active' 
+    ORDER BY duration DESC;
+    
+    -- Check database size
+    SELECT pg_size_pretty(pg_database_size('colanode_db'));
+    ```
+  </Step>
+
+  <Step title="Increase resource limits">
+    <CodeGroup>
+    ```yaml Docker Compose
+    services:
+      postgres:
+        deploy:
+          resources:
+            limits:
+              memory: 4G
+              cpus: '2'
+    ```
+    
+    ```yaml Kubernetes
+    postgresql:
+      primary:
+        resources:
+          requests:
+            memory: 2Gi
+            cpu: 1000m
+          limits:
+            memory: 4Gi
+            cpu: 2000m
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Enable query logging">
+    ```bash
+    LOGGING_LEVEL=debug
+    ```
+    
+    Check logs for slow database queries.
+  </Step>
+</Steps>
+
+### High memory usage
+
+**Solution:**
+
+1. **Monitor container memory**:
+   ```bash
+   docker stats
+   ```
+
+2. **Reduce concurrent connections**:
+   Configure PostgreSQL connection pool limits
+
+3. **Enable Redis eviction**:
+   ```bash
+   docker exec -it brainbox_valkey valkey-cli
+   CONFIG SET maxmemory 2gb
+   CONFIG SET maxmemory-policy allkeys-lru
+   ```
+
+## Update/Upgrade Issues
+
+### Migration errors after update
+
+**Solution:**
+
+<Steps>
+  <Step title="Check migration logs">
+    ```bash
+    docker compose logs server | grep -i migration
+    ```
+  </Step>
+
+  <Step title="Rollback if needed">
+    <CodeGroup>
+    ```bash Docker Compose
+    # Stop services
+    docker compose down
+    
+    # Restore database backup
+    gunzip -c backup.sql.gz | docker exec -i brainbox_postgres psql -U colanode_user -d colanode_db
+    
+    # Use previous image version
+    # Edit docker-compose.yaml to specify old tag
+    image: ghcr.io/your-username/brainbox-server:v1.0.0
+    
+    docker compose up -d
+    ```
+    
+    ```bash Kubernetes
+    # Rollback Helm release
+    helm rollback brainbox
+    
+    # Or to specific revision
+    helm rollback brainbox 3
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+### "Image pull" errors
+
+**Error:** Failed to pull image from registry
+
+**Solution:**
+
+<Steps>
+  <Step title="Verify image exists">
+    ```bash
+    # Check if image tag exists
+    docker pull ghcr.io/your-username/brainbox-server:latest
+    ```
+  </Step>
+
+  <Step title="Check registry authentication">
+    <CodeGroup>
+    ```bash Docker
+    # Login to GHCR
+    echo $GITHUB_TOKEN | docker login ghcr.io -u username --password-stdin
+    ```
+    
+    ```bash Kubernetes
+    # Create image pull secret
+    kubectl create secret docker-registry ghcr-secret \
+      --docker-server=ghcr.io \
+      --docker-username=username \
+      --docker-password=$GITHUB_TOKEN
+    
+    # Reference in values
+    brainbox:
+      imagePullSecrets:
+        - name: ghcr-secret
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Update image tag">
+    Use specific version instead of `latest`:
+
+    ```yaml
+    image: ghcr.io/your-username/brainbox-server:v1.0.0
+    ```
+  </Step>
+</Steps>
+
+## Getting Help
+
+If you're still experiencing issues:
+
+### Collect diagnostic information
+
+<CodeGroup>
+```bash Docker Compose
+# System info
+docker version
+docker compose version
+
+# Service status
+docker compose ps
+
+# Logs
+docker compose logs > brainbox-logs.txt
+
+# Container inspection
+docker inspect brainbox_server > server-inspect.txt
+```
+
+```bash Kubernetes
+# Cluster info
+kubectl version
+helm version
+
+# Resource status
+kubectl get all
+
+# Logs
+kubectl logs -l app.kubernetes.io/name=brainbox > brainbox-logs.txt
+
+# Pod details
+kubectl describe pod brainbox-server-abc123 > pod-describe.txt
+```
+</CodeGroup>
+
+### Report the issue
+
+1. **Check existing issues**: [GitHub Issues](https://github.com/brainbox/brainbox/issues)
+2. **Create new issue** with:
+   - Deployment method (Docker/Kubernetes)
+   - Brainbox version
+   - Error messages and logs
+   - Steps to reproduce
+   - Environment details (OS, Docker version, etc.)
+
+### Community support
+
+- GitHub Discussions
+- Documentation updates and examples
+
+## Preventive Maintenance
+
+### Regular backups
+
+```bash backup.sh
+#!/bin/bash
+# Automated backup script
+
+BACKUP_DIR="/backups/brainbox"
+DATE=$(date +%Y%m%d_%H%M%S)
+mkdir -p $BACKUP_DIR
+
+# PostgreSQL backup
+docker exec brainbox_postgres pg_dump -U colanode_user colanode_db | \
+  gzip > "$BACKUP_DIR/postgres_$DATE.sql.gz"
+
+# MinIO backup (optional)
+docker exec brainbox_minio mc mirror /data/brainbox "$BACKUP_DIR/minio_$DATE/"
+
+# Keep last 30 days
+find $BACKUP_DIR -name "*.sql.gz" -mtime +30 -delete
+```
+
+### Monitoring
+
+Set up basic monitoring:
+
+```bash healthcheck.sh
+#!/bin/bash
+# Health check script
+
+if ! curl -f http://localhost:4000 > /dev/null 2>&1; then
+  echo "Brainbox web is down!"
+  # Send alert (email, Slack, etc.)
+fi
+
+if ! docker exec brainbox_postgres pg_isready -U colanode_user > /dev/null 2>&1; then
+  echo "PostgreSQL is down!"
+fi
+```
+
+Add to crontab:
+
+```bash
+*/5 * * * * /path/to/healthcheck.sh
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration Reference" icon="gear" href="/self-hosting/configuration">
+    Review all configuration options
+  </Card>
+  <Card title="Docker Setup" icon="docker" href="/self-hosting/docker">
+    Docker Compose deployment guide
+  </Card>
+  <Card title="Kubernetes Setup" icon="cloud" href="/self-hosting/kubernetes">
+    Kubernetes deployment guide
+  </Card>
+</CardGroup>

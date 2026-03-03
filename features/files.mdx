@@ -1,0 +1,486 @@
+---
+title: 'Files'
+description: 'Upload, manage, and share files with secure storage and offline access'
+icon: 'file'
+---
+
+Brainbox provides file upload and management capabilities with support for images, videos, PDFs, and other document types. Files integrate seamlessly with pages, databases, and chat messages.
+
+## Uploading Files
+
+Files can be uploaded to multiple locations in your workspace:
+
+<CardGroup cols={3}>
+  <Card title="Pages" icon="file-lines">
+    Embed files directly in page content
+  </Card>
+  
+  <Card title="Database Fields" icon="database">
+    Attach files to database records
+  </Card>
+  
+  <Card title="Chat Messages" icon="comments">
+    Share files in channels and DMs
+  </Card>
+</CardGroup>
+
+### Upload Methods
+
+<Tabs>
+  <Tab title="Drag & Drop">
+    The easiest way to upload files:
+    
+    <Steps>
+      <Step title="Select files">
+        Drag files from your file explorer.
+      </Step>
+      
+      <Step title="Drop on target">
+        Drop onto a page, database field, or chat message.
+      </Step>
+      
+      <Step title="Upload starts">
+        Files upload automatically in the background.
+      </Step>
+    </Steps>
+  </Tab>
+  
+  <Tab title="File Picker">
+    Use the upload button:
+    
+    <Steps>
+      <Step title="Click upload button">
+        Look for the paperclip or upload icon.
+      </Step>
+      
+      <Step title="Browse files">
+        Select files from the file picker dialog.
+      </Step>
+      
+      <Step title="Confirm upload">
+        Click Open to start uploading.
+      </Step>
+    </Steps>
+  </Tab>
+  
+  <Tab title="Paste from Clipboard">
+    Quick upload for screenshots:
+    
+    <Steps>
+      <Step title="Copy image">
+        Take a screenshot or copy an image (Cmd/Ctrl + C).
+      </Step>
+      
+      <Step title="Paste in editor">
+        Paste (Cmd/Ctrl + V) into a page or message.
+      </Step>
+      
+      <Step title="Auto-upload">
+        Image uploads and embeds automatically.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## File Types
+
+Brainbox categorizes files into subtypes for specialized handling:
+
+<Tabs>
+  <Tab title="Images">
+    Image files with preview and display options.
+    
+    **Supported formats:**
+    - PNG, JPG, JPEG
+    - GIF, WebP
+    - SVG
+    - HEIC (converted to JPG)
+    
+    **Features:**
+    - Inline preview in pages
+    - Thumbnail generation
+    - Alignment options (left, center, right)
+    - Width adjustment
+    - Click to expand full-size
+    
+    ```typescript
+    {
+      type: "file",
+      subtype: "image",
+      mimeType: "image/png",
+      extension: "png",
+      imageAlignment: "center",
+      imageWidth: 600
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Videos">
+    Video files with embedded player.
+    
+    **Supported formats:**
+    - MP4, WebM
+    - MOV, AVI
+    - MKV
+    
+    **Features:**
+    - Embedded video player
+    - Playback controls
+    - Thumbnail preview
+    - Responsive sizing
+  </Tab>
+  
+  <Tab title="Audio">
+    Audio files with inline player.
+    
+    **Supported formats:**
+    - MP3, WAV
+    - OGG, M4A
+    - FLAC
+    
+    **Features:**
+    - Audio player controls
+    - Waveform visualization (optional)
+    - Timestamp display
+  </Tab>
+  
+  <Tab title="PDFs">
+    PDF documents with viewer.
+    
+    **Features:**
+    - Inline PDF viewer
+    - Page navigation
+    - Zoom controls
+    - Download option
+    - Full-screen mode
+  </Tab>
+  
+  <Tab title="Other Files">
+    All other file types.
+    
+    **Includes:**
+    - Documents (DOCX, TXT, MD)
+    - Spreadsheets (XLSX, CSV)
+    - Archives (ZIP, RAR)
+    - Code files (JS, PY, etc.)
+    
+    **Display:**
+    - File icon with name
+    - File size and type
+    - Download button
+    - Upload date
+  </Tab>
+</Tabs>
+
+## File Structure
+
+Each file is stored as a node with metadata:
+
+```typescript
+{
+  type: "file",
+  subtype: "image" | "video" | "audio" | "pdf" | "other",
+  parentId: "page_abc",           // Parent page, record, or message
+  name: "Screenshot 2024-03-15",  // Display name (editable)
+  originalName: "IMG_1234.png",   // Original filename
+  mimeType: "image/png",          // MIME type
+  extension: "png",               // File extension
+  size: 2458624,                  // Size in bytes
+  version: "v1",                  // Version identifier
+  status: 1,                      // 0=Pending, 1=Ready, 2=Error
+  index: "a0",                    // Position in parent
+  
+  // Image-specific fields
+  imageAlignment: "center",       // left, center, right
+  imageWidth: 600                 // Display width in pixels
+}
+```
+
+## File Storage
+
+Files are stored in S3-compatible object storage:
+
+<Steps>
+  <Step title="Client-side upload">
+    Files upload directly from your browser to S3 with presigned URLs.
+  </Step>
+  
+  <Step title="Chunked uploads">
+    Large files split into 20MB chunks for reliable uploads and resume capability.
+  </Step>
+  
+  <Step title="Metadata storage">
+    File metadata saves to your local SQLite database and syncs to PostgreSQL.
+  </Step>
+  
+  <Step title="CDN delivery">
+    Files serve through CDN for fast global access.
+  </Step>
+</Steps>
+
+### Upload Process
+
+```typescript
+// File upload configuration
+const FILE_UPLOAD_PART_SIZE = 20 * 1024 * 1024; // 20MB chunks
+
+enum FileStatus {
+  Pending = 0,   // Upload in progress
+  Ready = 1,     // Upload complete, file available
+  Error = 2      // Upload failed
+}
+```
+
+<Info>
+  Large file uploads use multipart upload for reliability. If an upload is interrupted, it can resume from the last completed chunk.
+</Info>
+
+## File Permissions
+
+File access follows parent node permissions:
+
+| Context | Create | View | Edit | Delete |
+|---------|--------|------|------|--------|
+| **Page/Database** | Member+ | Viewer+ | Member+ | Member+ |
+| **Chat Message** | Viewer+ | Viewer+ | Creator/Admin | Creator/Admin |
+
+<Note>
+  Files in chat messages have special permissions: only the message creator or channel admin can edit/delete them.
+</Note>
+
+## File Management
+
+### Renaming Files
+
+<Steps>
+  <Step title="Click file name">
+    Select the file name to enter edit mode.
+  </Step>
+  
+  <Step title="Edit name">
+    Type a new name (extension auto-preserved).
+  </Step>
+  
+  <Step title="Save changes">
+    Press Enter or click outside to save.
+  </Step>
+</Steps>
+
+### Deleting Files
+
+<Warning>
+  Deleting a file permanently removes it from storage. This cannot be undone.
+</Warning>
+
+<Steps>
+  <Step title="Select file">
+    Click the file to open its context menu.
+  </Step>
+  
+  <Step title="Delete option">
+    Choose **Delete** from the menu.
+  </Step>
+  
+  <Step title="Confirm deletion">
+    Confirm the deletion prompt.
+  </Step>
+</Steps>
+
+### Moving Files
+
+Files can be moved by changing their parent:
+
+- Drag files between pages
+- Copy/paste files to new locations
+- Update parent via API
+
+## Image Handling
+
+Images have special display features:
+
+### Alignment
+
+<CardGroup cols={3}>
+  <Card title="Left" icon="align-left">
+    Align image to the left with text wrapping
+  </Card>
+  
+  <Card title="Center" icon="align-center">
+    Center image with no text wrapping
+  </Card>
+  
+  <Card title="Right" icon="align-right">
+    Align image to the right with text wrapping
+  </Card>
+</CardGroup>
+
+### Width Control
+
+Adjust image width:
+
+- **Drag handles** - Resize by dragging corners
+- **Preset sizes** - Small (300px), Medium (600px), Large (900px), Full width
+- **Custom width** - Enter exact pixel value
+
+```typescript
+{
+  imageWidth: 600,        // Display width in pixels
+  imageAlignment: "center" // Alignment option
+}
+```
+
+### Responsive Images
+
+Images automatically scale for different screen sizes:
+
+- Desktop: Full specified width
+- Tablet: Max 90% viewport width
+- Mobile: 100% width (full bleed)
+
+## Offline Access
+
+Files work with Brainbox's offline-first architecture:
+
+<Tabs>
+  <Tab title="Cached Files">
+    Previously viewed files cache locally:
+    
+    - Images cache in browser storage
+    - Thumbnails cache separately
+    - Access cached files offline
+    - Cache clears based on storage limits
+    
+    <Note>
+      Only files you've previously opened are available offline. New files require internet connection for first download.
+    </Note>
+  </Tab>
+  
+  <Tab title="Offline Uploads">
+    Upload files while offline:
+    
+    <Steps>
+      <Step title="Queue upload">
+        File uploads queue in local database with **Pending** status.
+      </Step>
+      
+      <Step title="Store locally">
+        File data temporarily stores in IndexedDB.
+      </Step>
+      
+      <Step title="Auto-sync">
+        When reconnected, queued uploads process automatically.
+      </Step>
+      
+      <Step title="Status update">
+        Status changes to **Ready** when upload completes.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## File Size Limits
+
+Default upload limits (configurable in self-hosted deployments):
+
+| Plan | Single File | Total Storage |
+|------|-------------|---------------|
+| **Free** | 10 MB | 2 GB |
+| **Pro** | 100 MB | 100 GB |
+| **Enterprise** | 1 GB | Unlimited |
+| **Self-hosted** | Configurable | Configurable |
+
+<Info>
+  Self-hosted instances can configure file size limits via environment variables in the server configuration.
+</Info>
+
+## Storage Backend
+
+Brainbox uses S3-compatible storage:
+
+**Supported providers:**
+- AWS S3
+- MinIO (default for self-hosted)
+- DigitalOcean Spaces
+- Backblaze B2
+- Cloudflare R2
+- Any S3-compatible service
+
+**Configuration:**
+
+```bash
+S3_ENDPOINT=http://localhost:9000
+S3_ACCESS_KEY=minioadmin
+S3_SECRET_KEY=minioadmin
+S3_BUCKET=brainbox-files
+S3_REGION=us-east-1
+```
+
+## Security
+
+Files are protected with multiple security layers:
+
+<CardGroup cols={2}>
+  <Card title="Access Control" icon="shield">
+    Files inherit permissions from parent nodes
+  </Card>
+  
+  <Card title="Presigned URLs" icon="key">
+    Time-limited signed URLs for direct S3 access
+  </Card>
+  
+  <Card title="Virus Scanning" icon="virus">
+    Optional ClamAV integration for malware detection
+  </Card>
+  
+  <Card title="Encryption" icon="lock">
+    At-rest encryption via S3 bucket policies
+  </Card>
+</CardGroup>
+
+<Warning>
+  Never share file URLs directly. Always share through Brainbox to ensure proper access control.
+</Warning>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Optimize images before upload">
+    Compress images to reduce storage and improve load times. Use WebP format when possible for better compression.
+  </Accordion>
+  
+  <Accordion title="Use descriptive names">
+    Rename files with clear, searchable names instead of default camera names like "IMG_1234.png".
+  </Accordion>
+  
+  <Accordion title="Organize with folders">
+    Keep files organized in relevant pages or database records rather than uploading everything to one location.
+  </Accordion>
+  
+  <Accordion title="Delete unused files">
+    Regularly clean up old or unused files to save storage space and keep your workspace tidy.
+  </Accordion>
+  
+  <Accordion title="Check upload status">
+    Verify files show **Ready** status before sharing links or references to ensure they're fully uploaded.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Pages" icon="file-lines" href="/features/pages">
+    Embed files in rich text pages
+  </Card>
+  
+  <Card title="Databases" icon="database" href="/features/databases">
+    Use file fields in databases
+  </Card>
+  
+  <Card title="Chat" icon="comments" href="/features/chat">
+    Share files in conversations
+  </Card>
+  
+  <Card title="Collaboration" icon="users" href="/features/collaboration">
+    Learn about offline file uploads
+  </Card>
+</CardGroup>

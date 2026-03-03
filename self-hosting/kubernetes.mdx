@@ -1,0 +1,612 @@
+---
+title: Kubernetes Deployment
+description: Deploy Brainbox on Kubernetes using Helm charts for production scalability
+---
+
+Deploy Brainbox on Kubernetes using the official Helm chart. This setup provides high availability, horizontal scaling, and production-grade infrastructure management.
+
+## Prerequisites
+
+- Kubernetes 1.19 or later
+- Helm 3.0 or later
+- kubectl configured to access your cluster
+- Ingress controller (nginx, Traefik, or similar)
+- Persistent volume provisioner (for PostgreSQL, Redis, MinIO)
+
+<Note>
+  For managed Kubernetes services (GKE, EKS, AKS), the ingress controller and
+  storage provisioner are typically pre-configured.
+</Note>
+
+## Quick Start
+
+<Steps>
+  <Step title="Add Helm repository (optional)">
+    If the chart is published to a Helm repository:
+
+    ```bash
+    helm repo add brainbox https://charts.brainbox.dev
+    helm repo update
+    ```
+
+    Or use the chart directly from the repository:
+
+    ```bash
+    git clone https://github.com/brainbox/brainbox.git
+    cd brainbox/hosting/kubernetes
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    The chart uses Bitnami sub-charts for dependencies. Update dependencies:
+
+    ```bash
+    cd chart
+    helm dependency update
+    ```
+  </Step>
+
+  <Step title="Create values file">
+    Create a `values-prod.yaml` with your custom configuration:
+
+    ```yaml values-prod.yaml
+    brainbox:
+      replicaCount: 3
+      
+      image:
+        repository: ghcr.io/your-username/brainbox-server
+        tag: v1.0.0
+      
+      ingress:
+        enabled: true
+        className: nginx
+        annotations:
+          cert-manager.io/cluster-issuer: letsencrypt-prod
+        hosts:
+          - host: brainbox.example.com
+            paths:
+              - path: /
+                pathType: Prefix
+        tls:
+          - secretName: brainbox-tls
+            hosts:
+              - brainbox.example.com
+      
+      config:
+        SERVER_NAME: "Brainbox Production"
+        ACCOUNT_VERIFICATION_TYPE: email
+        USER_STORAGE_LIMIT: '53687091200'  # 50 GB
+        USER_MAX_FILE_SIZE: '524288000'    # 500 MB
+    
+    postgresql:
+      enabled: true
+      auth:
+        password: "your-secure-postgres-password"  # CHANGE THIS
+      primary:
+        persistence:
+          size: 50Gi
+    
+    redis:
+      enabled: true
+      auth:
+        password: "your-secure-redis-password"  # CHANGE THIS
+      master:
+        persistence:
+          size: 20Gi
+    
+    minio:
+      auth:
+        rootPassword: "your-secure-minio-password"  # CHANGE THIS
+      persistence:
+        size: 100Gi
+    ```
+
+    <Warning>
+      Always use strong, randomly generated passwords for production deployments.
+      Never commit files with passwords to version control.
+    </Warning>
+  </Step>
+
+  <Step title="Install the chart">
+    ```bash
+    helm install brainbox ./chart -f values-prod.yaml
+    ```
+
+    Or from Helm repository:
+
+    ```bash
+    helm install brainbox brainbox/brainbox -f values-prod.yaml
+    ```
+  </Step>
+
+  <Step title="Verify deployment">
+    ```bash
+    # Check pod status
+    kubectl get pods
+    
+    # Watch deployment progress
+    kubectl get pods -w
+    
+    # Check services
+    kubectl get svc
+    
+    # View logs
+    kubectl logs -l app.kubernetes.io/name=brainbox -f
+    ```
+  </Step>
+
+  <Step title="Access the application">
+    Once the ingress is configured:
+
+    ```bash
+    # Get ingress URL
+    kubectl get ingress
+    ```
+
+    Navigate to the configured hostname (e.g., https://brainbox.example.com)
+
+    For testing without ingress:
+
+    ```bash
+    kubectl port-forward svc/brainbox 3000:3000
+    ```
+
+    Then access at http://localhost:3000
+  </Step>
+</Steps>
+
+## Helm Chart Structure
+
+### Chart Dependencies
+
+The Brainbox Helm chart includes three Bitnami sub-charts:
+
+```yaml Chart.yaml
+apiVersion: v2
+name: brainbox
+description: A Helm chart for Brainbox - open-source & local-first collaboration workspace
+type: application
+version: 0.1.0
+appVersion: '1.0.0'
+
+dependencies:
+  - name: postgresql
+    version: '16.7.4'
+    repository: 'https://charts.bitnami.com/bitnami'
+    condition: postgresql.enabled
+  
+  - name: valkey
+    version: '3.0.4'
+    repository: 'https://charts.bitnami.com/bitnami'
+    alias: redis
+    condition: redis.enabled
+  
+  - name: minio
+    version: '16.0.10'
+    repository: 'https://charts.bitnami.com/bitnami'
+    condition: minio.enabled
+```
+
+### Key Configuration Values
+
+<CodeGroup>
+```yaml Core Settings
+brainbox:
+  replicaCount: 1  # Number of server replicas
+  
+  image:
+    repository: ghcr.io/brainbox/server
+    pullPolicy: Always
+    tag: 'latest'
+  
+  service:
+    type: ClusterIP
+    port: 3000
+```
+
+```yaml Ingress
+brainbox:
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    hosts:
+      - host: brainbox.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: brainbox-tls
+        hosts:
+          - brainbox.example.com
+```
+
+```yaml Server Config
+brainbox:
+  config:
+    NODE_ENV: production
+    SERVER_MODE: standalone  # Use 'cluster' for multi-replica
+    SERVER_NAME: 'Brainbox Kubernetes'
+    
+    # Account settings
+    ACCOUNT_VERIFICATION_TYPE: automatic
+    ACCOUNT_OTP_TIMEOUT: '600'
+    
+    # Storage limits
+    USER_STORAGE_LIMIT: '10737418240'  # 10 GB
+    USER_MAX_FILE_SIZE: '104857600'    # 100 MB
+```
+
+```yaml Database
+postgresql:
+  enabled: true
+  image:
+    registry: ghcr.io
+    repository: brainbox/postgresql
+    tag: '17'
+  
+  auth:
+    username: postgres
+    password: ""  # Auto-generated if empty
+    database: colanode_db
+  
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+```
+
+```yaml Redis/Valkey
+redis:
+  enabled: true
+  architecture: standalone
+  
+  auth:
+    enabled: true
+    password: ""  # Auto-generated if empty
+  
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+```
+
+```yaml MinIO
+minio:
+  auth:
+    rootUser: minioadmin
+    rootPassword: ""  # Auto-generated if empty
+  
+  persistence:
+    enabled: true
+    size: 10Gi
+  
+  defaultBuckets: brainbox
+```
+</CodeGroup>
+
+## Scaling
+
+### Horizontal Pod Autoscaling
+
+Enable HPA for automatic scaling based on CPU/memory:
+
+```yaml values-prod.yaml
+brainbox:
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+```
+
+<Note>
+  When using HPA or multiple replicas, set `SERVER_MODE=cluster` to enable
+  Redis-based coordination between instances.
+</Note>
+
+### Manual Scaling
+
+```bash
+# Scale to 5 replicas
+kubectl scale deployment brainbox --replicas=5
+
+# Or update the Helm release
+helm upgrade brainbox ./chart \
+  --set brainbox.replicaCount=5 \
+  -f values-prod.yaml
+```
+
+## High Availability Setup
+
+For production HA deployment:
+
+```yaml values-prod.yaml
+brainbox:
+  replicaCount: 3
+  
+  config:
+    SERVER_MODE: cluster  # Required for multi-replica
+  
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  
+  podAntiAffinity: soft  # Spread pods across nodes
+
+postgresql:
+  enabled: true
+  architecture: replication  # Primary-replica setup
+  replication:
+    enabled: true
+    numReplicas: 2
+  primary:
+    persistence:
+      size: 50Gi
+  readReplicas:
+    persistence:
+      size: 50Gi
+
+redis:
+  enabled: true
+  architecture: replication  # Master-replica setup
+  replica:
+    replicaCount: 2
+    persistence:
+      size: 20Gi
+
+minio:
+  mode: distributed  # Distributed MinIO
+  replicas: 4
+  persistence:
+    size: 100Gi
+```
+
+## Using External Services
+
+For managed database services (RDS, Cloud SQL, etc.), disable internal services:
+
+```yaml values-prod.yaml
+brainbox:
+  config:
+    # PostgreSQL
+    POSTGRES_URL: "postgresql://user:pass@your-rds-endpoint:5432/brainbox"
+    POSTGRES_SSL_REJECT_UNAUTHORIZED: "false"
+    
+    # Redis
+    REDIS_URL: "redis://:password@your-elasticache-endpoint:6379/0"
+    
+    # S3
+    STORAGE_S3_ENDPOINT: "https://s3.amazonaws.com"
+    STORAGE_S3_ACCESS_KEY: "your-access-key"
+    STORAGE_S3_SECRET_KEY: "your-secret-key"
+    STORAGE_S3_BUCKET: "brainbox-production"
+    STORAGE_S3_REGION: "us-east-1"
+    STORAGE_S3_FORCE_PATH_STYLE: "false"
+
+# Disable built-in services
+postgresql:
+  enabled: false
+
+redis:
+  enabled: false
+
+minio:
+  enabled: false
+```
+
+## Security Configuration
+
+### Custom PostgreSQL Image
+
+Brainbox requires PostgreSQL with the pgvector extension:
+
+```yaml values-prod.yaml
+global:
+  security:
+    # Required for custom PostgreSQL image
+    allowInsecureImages: true
+
+postgresql:
+  image:
+    registry: ghcr.io
+    repository: brainbox/postgresql
+    tag: '17'
+```
+
+<Note>
+  The `allowInsecureImages: true` setting is required by Bitnami Helm charts when
+  using custom images. The Brainbox PostgreSQL image is built on the official
+  Bitnami base image with pgvector added.
+</Note>
+
+### Network Policies
+
+Restrict network access between pods:
+
+```yaml networkpolicy.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: brainbox-network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: brainbox
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: nginx-ingress
+      ports:
+        - protocol: TCP
+          port: 3000
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgresql
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: valkey
+      ports:
+        - protocol: TCP
+          port: 6379
+```
+
+## Monitoring and Logging
+
+### Prometheus Metrics
+
+Enable ServiceMonitor for Prometheus:
+
+```yaml values-prod.yaml
+brainbox:
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+```
+
+### Centralized Logging
+
+View aggregated logs:
+
+```bash
+# All Brainbox pods
+kubectl logs -l app.kubernetes.io/name=brainbox -f
+
+# Specific pod
+kubectl logs brainbox-server-abc123 -f
+
+# Previous pod instance
+kubectl logs brainbox-server-abc123 -p
+```
+
+## Upgrading
+
+<Steps>
+  <Step title="Update Helm chart">
+    ```bash
+    helm repo update
+    ```
+  </Step>
+
+  <Step title="Check changes">
+    ```bash
+    helm diff upgrade brainbox brainbox/brainbox -f values-prod.yaml
+    ```
+  </Step>
+
+  <Step title="Upgrade release">
+    ```bash
+    helm upgrade brainbox brainbox/brainbox -f values-prod.yaml
+    ```
+
+    For local chart:
+
+    ```bash
+    helm upgrade brainbox ./chart -f values-prod.yaml
+    ```
+  </Step>
+
+  <Step title="Monitor rollout">
+    ```bash
+    kubectl rollout status deployment/brainbox
+    ```
+  </Step>
+</Steps>
+
+### Rollback
+
+If something goes wrong:
+
+```bash
+# View release history
+helm history brainbox
+
+# Rollback to previous version
+helm rollback brainbox
+
+# Rollback to specific revision
+helm rollback brainbox 3
+```
+
+## Uninstall
+
+```bash
+# Remove Helm release
+helm uninstall brainbox
+
+# Delete PVCs (this will delete all data)
+kubectl delete pvc -l app.kubernetes.io/instance=brainbox
+```
+
+<Warning>
+  Deleting PVCs will permanently delete all PostgreSQL data, Redis cache, and
+  MinIO files. Ensure you have backups before proceeding.
+</Warning>
+
+## Backup and Restore
+
+### PostgreSQL Backup
+
+```bash
+# Create backup
+kubectl exec -it brainbox-postgresql-0 -- \
+  pg_dump -U postgres colanode_db | gzip > brainbox-backup.sql.gz
+
+# Restore backup
+gunzip -c brainbox-backup.sql.gz | \
+  kubectl exec -i brainbox-postgresql-0 -- \
+  psql -U postgres colanode_db
+```
+
+### MinIO Backup
+
+Use MinIO client (mc) to backup S3 data:
+
+```bash
+# Install mc
+wget https://dl.min.io/client/mc/release/linux-amd64/mc
+chmod +x mc
+
+# Configure endpoint
+kubectl port-forward svc/brainbox-minio 9000:9000 &
+./mc alias set brainbox http://localhost:9000 minioadmin your-password
+
+# Mirror bucket
+./mc mirror brainbox/brainbox ./backup/
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/self-hosting/configuration">
+    Advanced environment variable configuration
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/self-hosting/troubleshooting">
+    Resolve common Kubernetes issues
+  </Card>
+</CardGroup>

@@ -1,0 +1,439 @@
+---
+title: 'Databases'
+description: 'Create structured data with custom fields, multiple views, and powerful filtering'
+icon: 'database'
+---
+
+Databases in Brainbox provide spreadsheet-like functionality with rich data types, custom fields, and multiple view layouts. Think Notion databases or Airtable - but local-first and self-hosted.
+
+## Creating Databases
+
+Databases are containers for structured records with custom fields:
+
+<Steps>
+  <Step title="Add a database">
+    Click **+** in any folder or space, then select **Database**.
+  </Step>
+  
+  <Step title="Name your database">
+    Give it a descriptive name like "Tasks", "Contacts", or "Inventory".
+  </Step>
+  
+  <Step title="Add fields">
+    Click **Add Field** to define custom properties for your records.
+  </Step>
+  
+  <Step title="Create records">
+    Add rows to store your data. Each record can have a rich text page attached.
+  </Step>
+</Steps>
+
+## Database Structure
+
+A database consists of:
+
+```typescript
+{
+  type: "database",
+  name: "My Database",
+  avatar: "📊",
+  parentId: "space_xyz",
+  fields: {
+    "field_abc": {
+      id: "field_abc",
+      type: "text",
+      name: "Name",
+      index: "a0"
+    },
+    "field_def": {
+      id: "field_def",
+      type: "select",
+      name: "Status",
+      index: "a1",
+      options: {
+        "opt_1": { name: "Todo", color: "gray" },
+        "opt_2": { name: "In Progress", color: "blue" },
+        "opt_3": { name: "Done", color: "green" }
+      }
+    }
+  },
+  nameField: {
+    name: "Title"
+  }
+}
+```
+
+## Field Types
+
+Brainbox supports 17 different field types for storing various data:
+
+<Tabs>
+  <Tab title="Basic Fields">
+    <CardGroup cols={2}>
+      <Card title="Text" icon="font">
+        Single or multi-line text content
+      </Card>
+      
+      <Card title="Number" icon="hashtag">
+        Numeric values with optional formatting
+      </Card>
+      
+      <Card title="Boolean" icon="toggle-on">
+        Checkbox for true/false values
+      </Card>
+      
+      <Card title="Date" icon="calendar">
+        Date picker with optional time
+      </Card>
+    </CardGroup>
+  </Tab>
+  
+  <Tab title="Selection Fields">
+    <CardGroup cols={2}>
+      <Card title="Select" icon="circle-dot">
+        Single choice from predefined options with colors
+      </Card>
+      
+      <Card title="Multi-Select" icon="list-check">
+        Multiple choices from predefined options
+      </Card>
+    </CardGroup>
+    
+    Each option has:
+    - **Name** - Display label
+    - **Color** - Visual identifier
+    - **Index** - Sort order
+  </Tab>
+  
+  <Tab title="Contact Fields">
+    <CardGroup cols={2}>
+      <Card title="Email" icon="envelope">
+        Email address with validation
+      </Card>
+      
+      <Card title="Phone" icon="phone">
+        Phone number with formatting
+      </Card>
+      
+      <Card title="URL" icon="link">
+        Web links with validation
+      </Card>
+      
+      <Card title="Collaborator" icon="user">
+        Reference to workspace users
+      </Card>
+    </CardGroup>
+  </Tab>
+  
+  <Tab title="Advanced Fields">
+    <CardGroup cols={2}>
+      <Card title="File" icon="file">
+        File attachments and uploads
+      </Card>
+      
+      <Card title="Relation" icon="arrow-right-arrow-left">
+        Link records from another database
+      </Card>
+      
+      <Card title="Rollup" icon="function">
+        Aggregate values from related records
+      </Card>
+    </CardGroup>
+  </Tab>
+  
+  <Tab title="System Fields">
+    <CardGroup cols={2}>
+      <Card title="Created At" icon="clock">
+        Automatic timestamp when record was created
+      </Card>
+      
+      <Card title="Created By" icon="user-plus">
+        User who created the record
+      </Card>
+      
+      <Card title="Updated At" icon="clock-rotate-left">
+        Last modification timestamp
+      </Card>
+      
+      <Card title="Updated By" icon="user-pen">
+        User who last modified the record
+      </Card>
+    </CardGroup>
+    
+    <Info>
+      System fields are automatically maintained and cannot be manually edited.
+    </Info>
+  </Tab>
+</Tabs>
+
+## Database Records
+
+Each record in a database is a node with:
+
+- **Fields** - Values for each custom field
+- **Name** - Record title (from name field)
+- **Avatar** - Optional emoji or icon
+- **Document** - Rich text page content (optional)
+
+<Note>
+  Records can have full page content just like regular pages. Click any record to open its page view and add notes, documentation, or details.
+</Note>
+
+## Database Views
+
+Views provide different ways to visualize and interact with your data. Each database can have multiple views with independent configurations.
+
+### View Types
+
+<Tabs>
+  <Tab title="Table View">
+    Classic spreadsheet layout with rows and columns.
+    
+    **Features:**
+    - Resize column widths
+    - Show/hide columns
+    - Reorder columns by dragging
+    - Inline editing
+    - Sort by any field
+    - Filter records
+    
+    **Perfect for:**
+    - Task lists
+    - Contact databases
+    - Inventory tracking
+    - Any tabular data
+  </Tab>
+  
+  <Tab title="Board View (Kanban)">
+    Cards organized in columns, perfect for workflows.
+    
+    **Features:**
+    - Group by select field (Status, Priority, etc.)
+    - Drag cards between columns
+    - Swimlanes for sub-grouping
+    - Card preview with key fields
+    - Quick edit on cards
+    
+    **Perfect for:**
+    - Sprint boards
+    - Sales pipelines
+    - Content calendars
+    - Hiring workflows
+    
+    <Info>
+      Board view requires at least one **Select** field to group cards into columns.
+    </Info>
+  </Tab>
+  
+  <Tab title="Calendar View">
+    Timeline visualization for date-based records.
+    
+    **Features:**
+    - Month, week, and day views
+    - Drag to reschedule events
+    - Color-coded by field
+    - Quick event creation
+    
+    **Perfect for:**
+    - Event planning
+    - Content schedules
+    - Project timelines
+    - Meeting tracking
+    
+    <Note>
+      Calendar view requires at least one **Date** field to display events.
+    </Note>
+  </Tab>
+</Tabs>
+
+### View Configuration
+
+Each view stores its own configuration:
+
+```typescript
+{
+  type: "database_view",
+  layout: "table" | "board" | "calendar",
+  name: "My View",
+  parentId: "database_xyz",
+  fields: {
+    "field_abc": {
+      id: "field_abc",
+      width: 200,        // Column width (table view)
+      display: true,     // Show/hide column
+      index: "a0"        // Column order
+    }
+  },
+  filters: {},          // Filter configuration
+  sorts: {},            // Sort configuration
+  groupBy: "field_status",  // Group field (board view)
+  swimlanesBy: "field_priority", // Swimlane field (board view)
+  nameWidth: 300        // Name column width
+}
+```
+
+## Filtering Records
+
+Views support powerful filtering to show only relevant records:
+
+<Steps>
+  <Step title="Add a filter">
+    Click the **Filter** button in any view toolbar.
+  </Step>
+  
+  <Step title="Choose a field">
+    Select which field to filter on.
+  </Step>
+  
+  <Step title="Select operator">
+    Choose how to compare the field value (equals, contains, is empty, etc.).
+  </Step>
+  
+  <Step title="Enter value">
+    Provide the value to filter by.
+  </Step>
+</Steps>
+
+### Filter Operators
+
+Available operators depend on field type:
+
+| Field Type | Operators |
+|------------|----------|
+| **Text** | Contains, Does not contain, Is empty, Is not empty, Equals |
+| **Number** | Equals, Does not equal, Greater than, Less than, Is empty |
+| **Select** | Is, Is not, Is empty, Is not empty |
+| **Date** | Is, Is before, Is after, Is empty, Is not empty |
+| **Boolean** | Is checked, Is not checked |
+
+### Complex Filters
+
+Combine multiple filters with AND/OR logic:
+
+```typescript
+{
+  filters: {
+    "filter_1": {
+      id: "filter_1",
+      type: "group",
+      operator: "and",
+      filters: [
+        {
+          id: "f1",
+          type: "field",
+          fieldId: "status",
+          operator: "equals",
+          value: "In Progress"
+        },
+        {
+          id: "f2",
+          type: "field",
+          fieldId: "priority",
+          operator: "equals",
+          value: "High"
+        }
+      ]
+    }
+  }
+}
+```
+
+## Sorting Records
+
+Sort records by one or more fields:
+
+<CardGroup cols={2}>
+  <Card title="Single Sort" icon="arrow-down-a-z">
+    Click any column header to sort ascending or descending.
+  </Card>
+  
+  <Card title="Multi-Level Sort" icon="arrow-down-9-1">
+    Add multiple sort rules to break ties (e.g., Status → Priority → Date).
+  </Card>
+</CardGroup>
+
+```typescript
+{
+  sorts: {
+    "sort_1": {
+      id: "sort_1",
+      fieldId: "priority",
+      direction: "desc"
+    },
+    "sort_2": {
+      id: "sort_2",
+      fieldId: "created_at",
+      direction: "asc"
+    }
+  }
+}
+```
+
+## Permissions
+
+Database access follows workspace permissions:
+
+| Role | Create DB | Add Fields | Edit Records | Delete |
+|------|-----------|------------|--------------|--------|
+| **Admin** | ✓ | ✓ | ✓ | ✓ |
+| **Member** | ✓ | ✓ | ✓ | ✓ |
+| **Viewer** | ✗ | ✗ | ✗ | ✗ |
+| **Guest** | ✗ | ✗ | ✗ | ✗ |
+
+<Warning>
+  Deleting a database permanently removes all records and views. This action cannot be undone.
+</Warning>
+
+## Real-Time Collaboration
+
+Multiple users can work on the same database simultaneously:
+
+- **Live updates** - See new records and changes instantly
+- **Conflict resolution** - CRDT technology merges concurrent edits
+- **Offline support** - Create and edit records offline, sync when reconnected
+
+See [Collaboration](/features/collaboration) for technical details.
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Project Management">
+    Track tasks, bugs, and features with Status, Assignee, Priority, and Due Date fields. Use board view for sprints and table view for backlogs.
+  </Accordion>
+  
+  <Accordion title="CRM">
+    Manage contacts with Email, Phone, Company, and Deal Stage fields. Use select fields for lead status and pipeline stages.
+  </Accordion>
+  
+  <Accordion title="Content Calendar">
+    Plan blog posts, social media, and campaigns with Date, Status, Platform, and Author fields. Calendar view shows your publishing schedule.
+  </Accordion>
+  
+  <Accordion title="Inventory Tracking">
+    Monitor stock with Number fields for quantity, Select for categories, and File fields for product images.
+  </Accordion>
+  
+  <Accordion title="Job Applications">
+    Track applications with Company, Position, Status, Date Applied, and Notes fields. Board view for application stages.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Pages" icon="file-lines" href="/features/pages">
+    Learn about rich text documents
+  </Card>
+  
+  <Card title="Files" icon="file" href="/features/files">
+    Attach files to database records
+  </Card>
+  
+  <Card title="Collaboration" icon="users" href="/features/collaboration">
+    Understand real-time editing
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api-reference">
+    Programmatic database access
+  </Card>
+</CardGroup>

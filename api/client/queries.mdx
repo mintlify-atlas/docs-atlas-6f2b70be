@@ -1,0 +1,1295 @@
+---
+title: Query Functions
+description: Complete reference for all client query functions in Brainbox
+---
+
+## Overview
+
+Query functions fetch data from the local SQLite database. All queries are type-safe and follow a consistent pattern.
+
+## Query Pattern
+
+All queries follow this structure:
+
+```typescript
+const result = await mediator.executeQuery({
+  type: 'query.name',
+  accountId: string,
+  workspaceId: string,
+  // ... query-specific parameters
+});
+```
+
+## Accounts
+
+### account.get
+
+Get a single account by ID.
+
+<ParamField path="type" type="'account.get'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID to fetch
+</ParamField>
+
+<ResponseField name="output" type="Account | null">
+  Returns the account or null if not found
+</ResponseField>
+
+```typescript
+const account = await mediator.executeQuery({
+  type: 'account.get',
+  accountId: 'account-123'
+});
+```
+
+### account.list
+
+List all accounts.
+
+<ParamField path="type" type="'account.list'" required>
+  Query type identifier
+</ParamField>
+
+<ResponseField name="output" type="Account[]">
+  Array of all accounts
+</ResponseField>
+
+```typescript
+const accounts = await mediator.executeQuery({
+  type: 'account.list'
+});
+```
+
+### account.metadata.list
+
+List all metadata entries for an account.
+
+<ParamField path="type" type="'account.metadata.list'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+```typescript
+const metadata = await mediator.executeQuery({
+  type: 'account.metadata.list',
+  accountId: 'account-123'
+});
+```
+
+## Workspaces
+
+### workspace.get
+
+Get a single workspace.
+
+<ParamField path="type" type="'workspace.get'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ResponseField name="output" type="Workspace | null">
+  Returns the workspace or null if not found
+</ResponseField>
+
+```typescript
+const workspace = await mediator.executeQuery({
+  type: 'workspace.get',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### workspace.list
+
+List all workspaces for an account.
+
+<ParamField path="type" type="'workspace.list'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ResponseField name="output" type="Workspace[]">
+  Array of workspaces
+</ResponseField>
+
+```typescript
+const workspaces = await mediator.executeQuery({
+  type: 'workspace.list',
+  accountId: 'account-123'
+});
+```
+
+### workspace.metadata.list
+
+List workspace metadata (sidebar state, containers, pinned items).
+
+<ParamField path="type" type="'workspace.metadata.list'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ResponseField name="output" type="WorkspaceMetadata[]">
+  Array of metadata entries including sidebar, containers, and pinned items
+</ResponseField>
+
+```typescript
+const metadata = await mediator.executeQuery({
+  type: 'workspace.metadata.list',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### workspace.storage.get
+
+Get storage usage information for a workspace.
+
+<ParamField path="type" type="'workspace.storage.get'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const storage = await mediator.executeQuery({
+  type: 'workspace.storage.get',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Nodes
+
+### node.get
+
+Get a single node by ID.
+
+<ParamField path="type" type="'node.get'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  Node ID
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ResponseField name="output" type="LocalNode | null">
+  Returns the node or null if not found. LocalNode is a union type that includes LocalSpaceNode, LocalPageNode, LocalDatabaseNode, LocalFolderNode, LocalFileNode, LocalChannelNode, LocalChatNode, LocalMessageNode, and LocalRecordNode.
+</ResponseField>
+
+```typescript
+const node = await mediator.executeQuery({
+  type: 'node.get',
+  nodeId: 'node-123',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+
+if (node?.type === 'page') {
+  console.log('Page name:', node.attributes.name);
+}
+```
+
+### node.children.get
+
+Get all children of a node.
+
+<ParamField path="type" type="'node.children.get'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  Parent node ID
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ResponseField name="output" type="LocalNode[]">
+  Array of child nodes
+</ResponseField>
+
+```typescript
+const children = await mediator.executeQuery({
+  type: 'node.children.get',
+  nodeId: 'folder-123',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### node.tree.get
+
+Get the full tree structure starting from a node.
+
+<ParamField path="type" type="'node.tree.get'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  Root node ID
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const tree = await mediator.executeQuery({
+  type: 'node.tree.get',
+  nodeId: 'space-123',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### node.search
+
+Search nodes by text content.
+
+<ParamField path="type" type="'node.search'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="searchQuery" type="string" required>
+  Search text
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ParamField path="types" type="string[]" optional>
+  Filter by node types (e.g., ['page', 'database'])
+</ParamField>
+
+<ParamField path="limit" type="number" optional>
+  Maximum number of results
+</ParamField>
+
+<ParamField path="offset" type="number" optional>
+  Pagination offset
+</ParamField>
+
+<ParamField path="titleOnly" type="boolean" optional>
+  Search only in titles, not content
+</ParamField>
+
+<ParamField path="dateRange" type="'today' | 'week' | 'month'" optional>
+  Filter by updated date
+</ParamField>
+
+<ParamField path="spaceId" type="string" optional>
+  Filter by space (root_id)
+</ParamField>
+
+<ResponseField name="output" type="NodeSearchResult[]">
+  Array of search results with snippets and ranking
+</ResponseField>
+
+```typescript
+const results = await mediator.executeQuery({
+  type: 'node.search',
+  searchQuery: 'project documentation',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456',
+  types: ['page', 'database'],
+  limit: 20,
+  titleOnly: false,
+  dateRange: 'week'
+});
+
+results.forEach(result => {
+  console.log(`${result.nameSnippet} (rank: ${result.rank})`);
+  console.log(`Content: ${result.contentSnippet}`);
+});
+```
+
+### node.recent.list
+
+Get recently accessed nodes.
+
+<ParamField path="type" type="'node.recent.list'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const recent = await mediator.executeQuery({
+  type: 'node.recent.list',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### node.popular.list
+
+Get popular nodes based on interactions.
+
+<ParamField path="type" type="'node.popular.list'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const popular = await mediator.executeQuery({
+  type: 'node.popular.list',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### node.reaction.list
+
+Get reactions for a node.
+
+<ParamField path="type" type="'node.reaction.list'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  Node ID
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ResponseField name="output" type="NodeReaction[]">
+  Array of reactions with user info and timestamps
+</ResponseField>
+
+```typescript
+const reactions = await mediator.executeQuery({
+  type: 'node.reaction.list',
+  nodeId: 'page-123',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### node.reactions.aggregate
+
+Get aggregated reaction counts for a node.
+
+<ParamField path="type" type="'node.reactions.aggregate'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  Node ID
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ResponseField name="output" type="NodeReactionCount[]">
+  Array with reaction emoji, count, and whether current user reacted
+</ResponseField>
+
+```typescript
+const aggregated = await mediator.executeQuery({
+  type: 'node.reactions.aggregate',
+  nodeId: 'page-123',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+
+// Result: [{ reaction: '👍', count: 5, reacted: true }, ...]
+```
+
+## Spaces
+
+### space.list
+
+List all spaces in a workspace.
+
+<ParamField path="type" type="'space.list'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ResponseField name="output" type="LocalSpaceNode[]">
+  Array of space nodes
+</ResponseField>
+
+```typescript
+const spaces = await mediator.executeQuery({
+  type: 'space.list',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Databases
+
+### database.list
+
+List all databases in a workspace.
+
+<ParamField path="type" type="'database.list'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ResponseField name="output" type="LocalDatabaseNode[]">
+  Array of database nodes
+</ResponseField>
+
+```typescript
+const databases = await mediator.executeQuery({
+  type: 'database.list',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### database.view.list
+
+List all views for a database.
+
+<ParamField path="type" type="'database.view.list'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const views = await mediator.executeQuery({
+  type: 'database.view.list',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Records
+
+### record.list
+
+List records in a database.
+
+<ParamField path="type" type="'record.list'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ResponseField name="output" type="LocalRecordNode[]">
+  Array of record nodes
+</ResponseField>
+
+```typescript
+const records = await mediator.executeQuery({
+  type: 'record.list',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### record.search
+
+Search records within a database.
+
+<ParamField path="type" type="'record.search'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="searchQuery" type="string" required>
+  Search text
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ParamField path="databaseId" type="string" required>
+  Database ID to search within
+</ParamField>
+
+<ParamField path="exclude" type="string[]" optional>
+  Record IDs to exclude from results
+</ParamField>
+
+<ResponseField name="output" type="LocalRecordNode[]">
+  Array of matching records
+</ResponseField>
+
+```typescript
+const records = await mediator.executeQuery({
+  type: 'record.search',
+  searchQuery: 'task',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456',
+  databaseId: 'database-789',
+  exclude: ['record-1', 'record-2']
+});
+```
+
+### record.field.value.count
+
+Count distinct values for a field.
+
+<ParamField path="type" type="'record.field.value.count'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const counts = await mediator.executeQuery({
+  type: 'record.field.value.count',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Users
+
+### user.get
+
+Get a single user.
+
+<ParamField path="type" type="'user.get'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ResponseField name="output" type="User | null">
+  Returns the user or null if not found
+</ResponseField>
+
+```typescript
+const user = await mediator.executeQuery({
+  type: 'user.get',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### user.list
+
+List all users in a workspace.
+
+<ParamField path="type" type="'user.list'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ResponseField name="output" type="User[]">
+  Array of users
+</ResponseField>
+
+```typescript
+const users = await mediator.executeQuery({
+  type: 'user.list',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### user.search
+
+Search users by name or email.
+
+<ParamField path="type" type="'user.search'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="searchQuery" type="string" required>
+  Search text
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ParamField path="exclude" type="string[]" optional>
+  User IDs to exclude from results
+</ParamField>
+
+<ResponseField name="output" type="User[]">
+  Array of matching users
+</ResponseField>
+
+```typescript
+const users = await mediator.executeQuery({
+  type: 'user.search',
+  searchQuery: 'john',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456',
+  exclude: ['user-1']
+});
+```
+
+### user.storage.get
+
+Get storage usage for a user.
+
+<ParamField path="type" type="'user.storage.get'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const storage = await mediator.executeQuery({
+  type: 'user.storage.get',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Files
+
+### file.list
+
+List files in a folder.
+
+<ParamField path="type" type="'file.list'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="parentId" type="string" required>
+  Parent folder ID
+</ParamField>
+
+<ParamField path="page" type="number" required>
+  Page number for pagination
+</ParamField>
+
+<ParamField path="count" type="number" required>
+  Items per page
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ResponseField name="output" type="LocalFileNode[]">
+  Array of file nodes
+</ResponseField>
+
+```typescript
+const files = await mediator.executeQuery({
+  type: 'file.list',
+  parentId: 'folder-123',
+  page: 0,
+  count: 50,
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### local.file.get
+
+Get local file path.
+
+<ParamField path="type" type="'local.file.get'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const filePath = await mediator.executeQuery({
+  type: 'local.file.get',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### upload.list
+
+List file uploads.
+
+<ParamField path="type" type="'upload.list'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const uploads = await mediator.executeQuery({
+  type: 'upload.list',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### upload.list.pending
+
+List pending file uploads.
+
+<ParamField path="type" type="'upload.list.pending'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const pending = await mediator.executeQuery({
+  type: 'upload.list.pending',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### download.list.manual
+
+List manual downloads.
+
+<ParamField path="type" type="'download.list.manual'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const downloads = await mediator.executeQuery({
+  type: 'download.list.manual',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### temp.file.get
+
+Get temporary file information.
+
+<ParamField path="type" type="'temp.file.get'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const tempFile = await mediator.executeQuery({
+  type: 'temp.file.get',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### file.download.request.get
+
+Get file download request status.
+
+<ParamField path="type" type="'file.download.request.get'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const downloadRequest = await mediator.executeQuery({
+  type: 'file.download.request.get',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Documents
+
+### document.get
+
+Get a document's CRDT state.
+
+<ParamField path="type" type="'document.get'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="documentId" type="string" required>
+  Document ID (same as node ID)
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ResponseField name="output" type="Document | null">
+  Returns the document or null if not found
+</ResponseField>
+
+```typescript
+const document = await mediator.executeQuery({
+  type: 'document.get',
+  documentId: 'page-123',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### document.state.get
+
+Get document state vector.
+
+<ParamField path="type" type="'document.state.get'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const state = await mediator.executeQuery({
+  type: 'document.state.get',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### document.updates.list
+
+List document updates/changes.
+
+<ParamField path="type" type="'document.updates.list'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const updates = await mediator.executeQuery({
+  type: 'document.updates.list',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Messages
+
+### message.list
+
+List messages in a channel or chat.
+
+<ParamField path="type" type="'message.list'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const messages = await mediator.executeQuery({
+  type: 'message.list',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Chats
+
+### chat.list
+
+List all chats in a workspace.
+
+<ParamField path="type" type="'chat.list'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const chats = await mediator.executeQuery({
+  type: 'chat.list',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Servers
+
+### server.list
+
+List all configured servers.
+
+<ParamField path="type" type="'server.list'" required>
+  Query type identifier
+</ParamField>
+
+<ResponseField name="output" type="Server[]">
+  Array of server configurations
+</ResponseField>
+
+```typescript
+const servers = await mediator.executeQuery({
+  type: 'server.list'
+});
+```
+
+## Emojis
+
+### emoji.get
+
+Get a single emoji by ID.
+
+<ParamField path="type" type="'emoji.get'" required>
+  Query type identifier
+</ParamField>
+
+```typescript
+const emoji = await mediator.executeQuery({
+  type: 'emoji.get'
+});
+```
+
+### emoji.get.by.skin.id
+
+Get emoji by skin tone ID.
+
+<ParamField path="type" type="'emoji.get.by.skin.id'" required>
+  Query type identifier
+</ParamField>
+
+```typescript
+const emoji = await mediator.executeQuery({
+  type: 'emoji.get.by.skin.id'
+});
+```
+
+### emoji.list
+
+List all available emojis.
+
+<ParamField path="type" type="'emoji.list'" required>
+  Query type identifier
+</ParamField>
+
+```typescript
+const emojis = await mediator.executeQuery({
+  type: 'emoji.list'
+});
+```
+
+### emoji.search
+
+Search emojis by name or keyword.
+
+<ParamField path="type" type="'emoji.search'" required>
+  Query type identifier
+</ParamField>
+
+```typescript
+const emojis = await mediator.executeQuery({
+  type: 'emoji.search'
+});
+```
+
+### emoji.category.list
+
+List emoji categories.
+
+<ParamField path="type" type="'emoji.category.list'" required>
+  Query type identifier
+</ParamField>
+
+```typescript
+const categories = await mediator.executeQuery({
+  type: 'emoji.category.list'
+});
+```
+
+## Icons
+
+### icon.list
+
+List all available icons.
+
+<ParamField path="type" type="'icon.list'" required>
+  Query type identifier
+</ParamField>
+
+```typescript
+const icons = await mediator.executeQuery({
+  type: 'icon.list'
+});
+```
+
+### icon.search
+
+Search icons by name.
+
+<ParamField path="type" type="'icon.search'" required>
+  Query type identifier
+</ParamField>
+
+```typescript
+const icons = await mediator.executeQuery({
+  type: 'icon.search'
+});
+```
+
+### icon.category.list
+
+List icon categories.
+
+<ParamField path="type" type="'icon.category.list'" required>
+  Query type identifier
+</ParamField>
+
+```typescript
+const categories = await mediator.executeQuery({
+  type: 'icon.category.list'
+});
+```
+
+## Avatars
+
+### avatar.get
+
+Get avatar data.
+
+<ParamField path="type" type="'avatar.get'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+```typescript
+const avatar = await mediator.executeQuery({
+  type: 'avatar.get',
+  accountId: 'account-123'
+});
+```
+
+## Interactions
+
+### radar.data.get
+
+Get radar/activity data.
+
+<ParamField path="type" type="'radar.data.get'" required>
+  Query type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const radarData = await mediator.executeQuery({
+  type: 'radar.data.get',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## App Metadata
+
+### app.metadata.list
+
+List application metadata.
+
+<ParamField path="type" type="'app.metadata.list'" required>
+  Query type identifier
+</ParamField>
+
+```typescript
+const metadata = await mediator.executeQuery({
+  type: 'app.metadata.list'
+});
+```

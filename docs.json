@@ -1,122 +1,144 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Brainbox",
+  "theme": "palm",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#6366f1",
+    "light": "#818cf8",
+    "dark": "#4f46e5"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/itskritix/brainbox"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/itskritix/brainbox"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "installation"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Features",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "features/pages",
+              "features/databases",
+              "features/chat",
+              "features/files",
+              "features/collaboration"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Self-Hosting",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "self-hosting/overview",
+              "self-hosting/docker",
+              "self-hosting/kubernetes",
+              "self-hosting/configuration",
+              "self-hosting/troubleshooting"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Architecture",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "architecture/overview",
+              "architecture/local-first",
+              "architecture/sync-engine",
+              "architecture/crdt",
+              "architecture/monorepo"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Development",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Getting Started",
             "pages": [
-              "api-reference/introduction"
+              "development/setup",
+              "development/running-locally",
+              "development/project-structure"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Core Packages",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "packages/core",
+              "packages/client",
+              "packages/crdt",
+              "packages/ui"
+            ]
+          },
+          {
+            "group": "Building Features",
+            "pages": [
+              "guides/creating-nodes",
+              "guides/sync-handlers",
+              "guides/api-routes",
+              "guides/ui-components"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "contributing/guidelines",
+              "contributing/code-style",
+              "contributing/testing",
+              "contributing/pull-requests"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Client API",
+            "pages": [
+              "api/client/overview",
+              "api/client/queries",
+              "api/client/mutations",
+              "api/client/commands"
+            ]
+          },
+          {
+            "group": "Node Types",
+            "pages": [
+              "api/nodes/space",
+              "api/nodes/folder",
+              "api/nodes/page",
+              "api/nodes/database",
+              "api/nodes/record",
+              "api/nodes/field",
+              "api/nodes/channel",
+              "api/nodes/message",
+              "api/nodes/file"
+            ]
+          },
+          {
+            "group": "Server API",
+            "pages": [
+              "api/server/authentication",
+              "api/server/workspaces",
+              "api/server/websockets"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

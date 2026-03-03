@@ -1,0 +1,178 @@
+---
+title: 'File Node'
+description: 'File attachment with metadata and display options'
+---
+
+## Overview
+
+The File node represents an uploaded file attachment. Files can be attached to various parent nodes (pages, messages, folders, etc.) and support different subtypes for images, videos, audio, PDFs, and other file types.
+
+## Attributes Schema
+
+```typescript
+z.object({
+  type: z.literal('file'),
+  subtype: z.enum(['image', 'video', 'audio', 'pdf', 'other']),
+  parentId: z.string(),
+  index: z.string().optional(),
+  name: z.string(),
+  originalName: z.string(),
+  mimeType: z.string(),
+  extension: z.string(),
+  size: z.number(),
+  version: z.string(),
+  status: z.number(),
+  imageAlignment: z.enum(['left', 'center', 'right']).optional(),
+  imageWidth: z.number().optional(),
+})
+```
+
+<ParamField path="type" type="literal" required>
+  Must be `'file'`
+</ParamField>
+
+<ParamField path="subtype" type="'image' | 'video' | 'audio' | 'pdf' | 'other'" required>
+  The file subtype based on content
+</ParamField>
+
+<ParamField path="parentId" type="string" required>
+  ID of the parent node (page, message, folder, etc.)
+</ParamField>
+
+<ParamField path="index" type="string">
+  Fractional index for ordering files among siblings
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  The display name of the file (may be renamed)
+</ParamField>
+
+<ParamField path="originalName" type="string" required>
+  The original filename when uploaded
+</ParamField>
+
+<ParamField path="mimeType" type="string" required>
+  MIME type of the file (e.g., `'image/png'`, `'application/pdf'`)
+</ParamField>
+
+<ParamField path="extension" type="string" required>
+  File extension (e.g., `'png'`, `'pdf'`)
+</ParamField>
+
+<ParamField path="size" type="number" required>
+  File size in bytes
+</ParamField>
+
+<ParamField path="version" type="string" required>
+  Version identifier for the file (used for cache busting)
+</ParamField>
+
+<ParamField path="status" type="number" required>
+  Upload status:
+  - `0`: Pending upload
+  - `1`: Ready/uploaded successfully
+  - `2`: Error during upload
+</ParamField>
+
+<ParamField path="imageAlignment" type="'left' | 'center' | 'right'">
+  Alignment for image display (only applicable for image subtype)
+</ParamField>
+
+<ParamField path="imageWidth" type="number">
+  Display width in pixels for images (only applicable for image subtype)
+</ParamField>
+
+## File Status Enum
+
+```typescript
+enum FileStatus {
+  Pending = 0,
+  Ready = 1,
+  Error = 2,
+}
+```
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/types/files.ts:13-17`
+
+## Permissions
+
+### canCreate
+
+**Rules:**
+
+Permissions vary based on parent node type:
+
+- Tree must not be empty
+- If parent is a `'message'`:
+  - User needs at least `'viewer'` role in the channel
+- For other parent types:
+  - User needs at least `'member'` role
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/file.ts:29-49`
+
+### canUpdateAttributes
+
+**Rules:**
+
+Permissions vary based on parent node type:
+
+- Tree must not be empty
+- If parent is a `'message'`:
+  - User must be the message creator OR have `'admin'` role in the channel
+- For other parent types:
+  - User needs at least `'member'` role
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/file.ts:50-70`
+
+### canUpdateDocument
+
+**Rules:**
+- Always returns `false` (files do not have documents)
+
+### canDelete
+
+**Rules:**
+
+Permissions vary based on parent node type:
+
+- Tree must not be empty
+- If parent is a `'message'`:
+  - User must be the message creator OR have `'admin'` role in the channel
+- For other parent types:
+  - User needs at least `'member'` role
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/file.ts:74-94`
+
+### canReact
+
+**Rules:**
+- Always returns `false` (files cannot be reacted to)
+
+## Document Schema
+
+Files do not support documents.
+
+## Text Extraction
+
+```typescript
+{
+  name: attributes.name,
+  attributes: null
+}
+```
+
+Only the file name is extracted for search/indexing.
+
+## Mentions
+
+Files do not support mentions. Always returns `[]`.
+
+## File Upload
+
+Files are uploaded in parts with a part size of 20MB:
+
+```typescript
+const FILE_UPLOAD_PART_SIZE = 20 * 1024 * 1024; // 20MB
+```
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/types/files.ts:19`

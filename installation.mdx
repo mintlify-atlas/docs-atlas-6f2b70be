@@ -1,0 +1,463 @@
+---
+title: "Installation"
+description: "Install Brainbox on web, desktop, or self-hosted infrastructure. Choose the deployment option that fits your needs."
+---
+
+## Choose your installation method
+
+Brainbox offers multiple deployment options to fit your workflow and infrastructure requirements.
+
+<CardGroup cols={3}>
+  <Card title="Web app" icon="globe">
+    Fastest setup—no installation required
+  </Card>
+  <Card title="Desktop app" icon="desktop">
+    Native app with offline-first support
+  </Card>
+  <Card title="Self-hosted" icon="server">
+    Full control on your infrastructure
+  </Card>
+</CardGroup>
+
+## Web app installation
+
+The web app runs entirely in your browser with no server installation required.
+
+### Requirements
+
+<Warning>
+  **Browser compatibility**: Chrome 102+, Edge 102+, or Firefox 111+ required. Safari and mobile browsers are not currently supported due to OPFS (Origin Private File System) requirements.
+</Warning>
+
+- Modern browser with OPFS support
+- Stable internet connection for initial setup
+- ~50MB storage for local database
+
+### Getting started
+
+<Steps>
+  <Step title="Visit the app">
+    Navigate to [brainbox.sh](https://brainbox.sh/) in a supported browser
+  </Step>
+  <Step title="Create an account">
+    Sign up with email or Google OAuth
+    
+    <CodeGroup>
+    ```typescript Email signup
+    // Uses @brainbox/client mutations
+    await executeMutation({
+      type: 'email.register',
+      email: 'user@example.com',
+      password: 'secure-password',
+      name: 'Your Name'
+    });
+    ```
+    ```typescript Google OAuth
+    await executeMutation({
+      type: 'google.login',
+      token: googleIdToken
+    });
+    ```
+    </CodeGroup>
+  </Step>
+  <Step title="Browser grants storage access">
+    The app will request OPFS access to create a local SQLite database
+  </Step>
+  <Step title="Start using Brainbox">
+    Create workspaces and pages—all data syncs automatically
+  </Step>
+</Steps>
+
+### How it works
+
+The web app uses **WebAssembly SQLite** running in a Web Worker:
+
+```typescript
+// From apps/web/src/main.tsx
+import * as Comlink from 'comlink';
+import { ColanodeWorkerApi } from '@brainbox/web/lib/types';
+import DedicatedWorker from '@brainbox/web/workers/dedicated?worker';
+
+const worker = new DedicatedWorker();
+const workerApi = Comlink.wrap<ColanodeWorkerApi>(worker);
+
+window.brainbox = {
+  init: async () => {
+    await workerApi.init();
+  },
+  executeMutation: async (input) => {
+    return workerApi.executeMutation(input);
+  },
+  executeQuery: async (input) => {
+    return workerApi.executeQuery(input);
+  }
+};
+```
+
+<Tip>
+  All changes save to your local browser database first, then sync to the server in the background.
+</Tip>
+
+## Desktop app installation
+
+The desktop app provides native performance with better-sqlite3 and full offline support.
+
+### System requirements
+
+- **macOS**: 10.13 (High Sierra) or later
+- **Windows**: Windows 10 or later  
+- **Linux**: Ubuntu 18.04+, Fedora 32+, or Debian 10+
+- ~200MB disk space
+- Node.js not required for end users
+
+### Download and install
+
+<Tabs>
+  <Tab title="macOS">
+    <Steps>
+      <Step title="Download">
+        Get the latest `.dmg` file from [GitHub Releases](https://github.com/brainbox/brainbox/releases)
+      </Step>
+      <Step title="Install">
+        1. Open the `.dmg` file
+        2. Drag Brainbox to your Applications folder  
+        3. Right-click and select **Open** (first launch only)
+      </Step>
+      <Step title="Launch">
+        Open Brainbox from Applications and sign in or create an account
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Windows">
+    <Steps>
+      <Step title="Download">
+        Get the latest `.exe` installer from [GitHub Releases](https://github.com/brainbox/brainbox/releases)
+      </Step>
+      <Step title="Install">
+        1. Run the installer
+        2. Follow the installation wizard  
+        3. Choose install location (default recommended)
+      </Step>
+      <Step title="Launch">
+        Open Brainbox from the Start menu or desktop shortcut
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Linux">
+    <Steps>
+      <Step title="Download">
+        Choose your package format:
+        - **Debian/Ubuntu**: `.deb` file
+        - **Fedora/RHEL**: `.rpm` file
+      </Step>
+      <Step title="Install">
+        ```bash Debian/Ubuntu
+        sudo dpkg -i brainbox_1.1.0_amd64.deb
+        ```
+        
+        ```bash Fedora/RHEL  
+        sudo rpm -i brainbox-1.1.0.x86_64.rpm
+        ```
+      </Step>
+      <Step title="Launch">
+        ```bash
+        brainbox
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+### Desktop app features
+
+<CardGroup cols={2}>
+  <Card title="Native SQLite" icon="database">
+    Uses better-sqlite3 for maximum performance
+  </Card>
+  <Card title="True offline mode" icon="plane">
+    Work without any internet connection
+  </Card>
+  <Card title="File system access" icon="folder-open">
+    Direct access to local files and folders
+  </Card>
+  <Card title="Auto-updates" icon="arrows-rotate">
+    Automatic updates via update-electron-app
+  </Card>
+</CardGroup>
+
+## Self-hosted installation
+
+Deploy Brainbox on your own infrastructure for complete control and data sovereignty.
+
+### Prerequisites
+
+<CodeGroup>
+```bash Docker (recommended)
+# Docker 20.10+ and Docker Compose 2.0+
+docker --version
+docker compose version
+```
+
+```bash Development
+# For local development setup
+node --version  # v18+
+npm --version   # v10+
+```
+</CodeGroup>
+
+### Quick start with Docker
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/brainbox/brainbox.git
+    cd brainbox/hosting/docker
+    ```
+  </Step>
+  <Step title="Configure environment">
+    ```bash
+    cp .env.example .env
+    ```
+    
+    Edit `.env` with your settings:
+    
+    ```bash .env
+    # Set secure passwords
+    POSTGRES_PASSWORD=your-secure-postgres-password
+    VALKEY_PASSWORD=your-secure-redis-password  
+    MINIO_ROOT_PASSWORD=your-secure-minio-password
+    
+    # Account settings
+    ACCOUNT_VERIFICATION_TYPE=automatic  # or 'email' or 'manual'
+    
+    # Optional: Storage limits
+    USER_STORAGE_LIMIT=10737418240      # 10 GB per user
+    USER_MAX_FILE_SIZE=104857600        # 100 MB max file
+    ```
+  </Step>
+  <Step title="Start services">
+    ```bash
+    docker compose up -d
+    ```
+    
+    This starts:
+    - **PostgreSQL 17** with pgvector extension
+    - **Valkey 8.1** (Redis fork) for caching  
+    - **MinIO** for S3-compatible object storage
+    - **Brainbox server** (Fastify API on port 3000)
+    - **Brainbox web** (React app on port 4000)
+  </Step>
+  <Step title="Access your instance">
+    Open `http://localhost:4000` and create your first account
+  </Step>
+</Steps>
+
+<Tip>
+  MinIO console is available at `http://localhost:9001` using the credentials from `.env`
+</Tip>
+
+### Infrastructure requirements
+
+<Tabs>
+  <Tab title="Minimum">
+    For small teams (5-10 users):
+    
+    - **CPU**: 2 cores
+    - **RAM**: 4GB  
+    - **Storage**: 20GB SSD
+    - **Network**: 100 Mbps
+  </Tab>
+  <Tab title="Recommended">
+    For medium teams (25-50 users):
+    
+    - **CPU**: 4 cores
+    - **RAM**: 8GB
+    - **Storage**: 100GB SSD  
+    - **Network**: 1 Gbps
+  </Tab>
+  <Tab title="Production">
+    For large teams (100+ users):
+    
+    - **CPU**: 8+ cores
+    - **RAM**: 16GB+
+    - **Storage**: 500GB+ SSD with daily backups
+    - **Network**: 1 Gbps+  
+    - **Database**: Managed PostgreSQL with read replicas
+    - **Cache**: Redis cluster for high availability
+    - **Storage**: S3 or compatible with CDN
+  </Tab>
+</Tabs>
+
+### Environment configuration
+
+Key environment variables from `apps/server/.env.example`:
+
+<CodeGroup>
+```bash Database
+# PostgreSQL connection
+POSTGRES_URL=postgres://user:pass@localhost:5432/brainbox
+
+# Optional SSL settings
+# POSTGRES_SSL_REJECT_UNAUTHORIZED=false
+# POSTGRES_SSL_CA=/path/to/ca.crt
+```
+
+```bash Redis
+# Redis/Valkey connection  
+REDIS_URL=redis://:password@localhost:6379/0
+
+# Optional prefixes
+# REDIS_JOBS_QUEUE_PREFIX=brainbox
+# REDIS_EVENTS_CHANNEL=events
+```
+
+```bash Storage
+# S3-compatible storage (MinIO, AWS S3, etc.)
+STORAGE_S3_ENDPOINT=http://localhost:9000
+STORAGE_S3_ACCESS_KEY=minioadmin
+STORAGE_S3_SECRET_KEY=your_minio_password  
+STORAGE_S3_BUCKET=brainbox
+STORAGE_S3_REGION=us-east-1
+STORAGE_S3_FORCE_PATH_STYLE=true  # Required for MinIO
+```
+
+```bash Server
+# Server configuration
+NODE_ENV=production
+SERVER_MODE=standalone  # or 'cluster' for multi-process
+SERVER_NAME="Brainbox Local"
+
+# Authentication  
+JWT_SECRET=your-random-secret-key-here
+ACCOUNT_VERIFICATION_TYPE=automatic
+```
+</CodeGroup>
+
+### Kubernetes deployment
+
+For production-grade deployments:
+
+```bash
+helm repo add brainbox https://charts.brainbox.dev
+helm install brainbox brainbox/brainbox \
+  --set postgresql.auth.password=your-password \
+  --set redis.auth.password=your-redis-password \
+  --set minio.rootPassword=your-minio-password
+```
+
+<Card
+  title="Kubernetes guide"
+  icon="dharmachakra"
+  href="/self-hosting/kubernetes"
+>
+  See the full Kubernetes installation guide for advanced configurations
+</Card>
+
+### Verify installation
+
+Check that all services are running:
+
+```bash
+# View container status
+docker compose ps
+
+# Check logs
+docker compose logs server
+docker compose logs web
+
+# Test database connection  
+docker exec -it brainbox_postgres psql -U colanode_user -d colanode_db
+```
+
+Expected output:
+
+```
+NAME                 STATUS   PORTS
+brainbox_postgres    Up       5432
+brainbox_valkey      Up       6379  
+brainbox_minio       Up       9000-9001
+brainbox_server      Up       3000
+brainbox_web         Up       4000->80
+```
+
+## Development installation
+
+For contributors and developers building custom features:
+
+<Steps>
+  <Step title="Clone and install">
+    ```bash
+    git clone https://github.com/brainbox/brainbox.git
+    cd brainbox
+    npm install
+    ```
+  </Step>
+  <Step title="Start infrastructure">
+    ```bash
+    docker compose -f hosting/docker/docker-compose.yaml up -d
+    ```
+  </Step>
+  <Step title="Configure server">
+    ```bash
+    cd apps/server
+    cp .env.example .env
+    # Edit .env with local development values
+    ```
+  </Step>
+  <Step title="Start development servers">
+    ```bash  
+    # From repository root
+    npm run dev
+    ```
+    
+    This starts:
+    - **API server**: `http://localhost:3000`
+    - **Web app**: `http://localhost:4000`  
+    - **Desktop app**: Electron window
+  </Step>
+</Steps>
+
+<Card
+  title="Development guide"
+  icon="code"
+  href="/development/setup"
+>
+  See the full development setup guide for detailed instructions
+</Card>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Quickstart guide"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Create your first workspace and pages
+  </Card>
+  <Card
+    title="Configuration"
+    icon="gear"
+    href="/self-hosting/configuration"
+  >
+    Advanced server and deployment configuration
+  </Card>
+  <Card
+    title="Troubleshooting"
+    icon="screwdriver-wrench"
+    href="/self-hosting/troubleshooting"
+  >
+    Common issues and solutions
+  </Card>
+  <Card
+    title="Architecture"
+    icon="diagram-project"
+    href="/architecture/overview"
+  >
+    Learn how Brainbox works under the hood
+  </Card>
+</CardGroup>
+
+<Note>
+  **Need help?** Report installation issues on [GitHub Issues](https://github.com/brainbox/brainbox/issues) or ask in [Discussions](https://github.com/brainbox/brainbox/discussions).
+</Note>

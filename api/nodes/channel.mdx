@@ -1,0 +1,111 @@
+---
+title: 'Channel Node'
+description: 'Discussion channel with messages and collaboration settings'
+---
+
+## Overview
+
+The Channel node represents a discussion space where users can post messages. Channels can be public (visible to all workspace members) or private (restricted to specific collaborators).
+
+## Attributes Schema
+
+```typescript
+z.object({
+  type: z.literal('channel'),
+  name: z.string(),
+  avatar: z.string().nullable().optional(),
+  parentId: z.string(),
+  collaborators: z.record(z.string(), nodeRoleEnum),
+  visibility: z.enum(['public', 'private']).default('public'),
+})
+```
+
+<ParamField path="type" type="literal" required>
+  Must be `'channel'`
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  The name of the channel
+</ParamField>
+
+<ParamField path="avatar" type="string | null">
+  Optional avatar URL or emoji for the channel
+</ParamField>
+
+<ParamField path="parentId" type="string" required>
+  ID of the parent node (typically a space or folder)
+</ParamField>
+
+<ParamField path="collaborators" type="Record<string, NodeRole>" required>
+  Map of user IDs to their roles in this channel. Roles can be `'admin'`, `'member'`, or `'viewer'`.
+</ParamField>
+
+<ParamField path="visibility" type="'public' | 'private'" default="public">
+  - `'public'`: Visible to all workspace members
+  - `'private'`: Only visible to listed collaborators
+</ParamField>
+
+## Permissions
+
+### canCreate
+
+**Rules:**
+- If at root level (`tree.length === 0`):
+  - User must have at least `'member'` workspace role
+- If within a parent node:
+  - User must have at least `'member'` role in the parent
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/channel.ts:22-37`
+
+### canUpdateAttributes
+
+**Rules:**
+
+Complex permission logic based on whether collaborators are being changed:
+
+- If collaborators are being modified:
+  - User must have `'admin'` role in the channel (if in tree)
+  - OR user must have `'admin'` workspace role (if at root)
+- If collaborators are NOT being modified:
+  - User needs `'member'` role in the channel (if in tree)
+  - OR `'member'` workspace role (if at root)
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/channel.ts:38-76`
+
+### canUpdateDocument
+
+**Rules:**
+- Always returns `false` (channels do not have documents)
+
+### canDelete
+
+**Rules:**
+- If within a parent node:
+  - User must have `'admin'` role in the channel
+- OR user must have `'admin'` workspace role
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/channel.ts:80-93`
+
+### canReact
+
+**Rules:**
+- Always returns `false` (channels themselves cannot be reacted to, but messages within them can)
+
+## Document Schema
+
+Channels do not support documents.
+
+## Text Extraction
+
+```typescript
+{
+  name: attributes.name,
+  attributes: null
+}
+```
+
+Only the channel name is extracted for search/indexing.
+
+## Mentions
+
+Channels do not support mentions. Always returns `[]`.

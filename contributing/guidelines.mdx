@@ -1,0 +1,233 @@
+---
+title: Contributing Guidelines
+description: How to contribute to Brainbox development
+---
+
+Thank you for your interest in contributing to Brainbox. This guide covers the complete development workflow.
+
+## Development Setup
+
+### Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- Node.js 18+ and npm 10+
+- Docker and Docker Compose
+- Git
+
+### Initial Setup
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/itskritix/brainbox.git
+    cd brainbox
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    npm install
+    ```
+  </Step>
+
+  <Step title="Start infrastructure">
+    Launch PostgreSQL, Redis, and MinIO using Docker Compose:
+    ```bash
+    docker compose -f hosting/docker/docker-compose.yaml up -d
+    ```
+  </Step>
+
+  <Step title="Configure environment">
+    ```bash
+    cd apps/server
+    cp .env.example .env
+    cd ../..
+    ```
+  </Step>
+
+  <Step title="Start development servers">
+    ```bash
+    npm run dev
+    ```
+  </Step>
+</Steps>
+
+### Running Individual Services
+
+You can run specific services independently:
+
+```bash
+cd apps/server && npm run dev   # API server (port 3000)
+cd apps/web && npm run dev      # Web app (port 4000)
+cd apps/desktop && npm run dev  # Electron desktop app
+```
+
+## Development Workflow
+
+<Steps>
+  <Step title="Create a feature branch">
+    Always branch from `main`:
+    ```bash
+    git checkout -b feat/your-feature-name
+    ```
+  </Step>
+
+  <Step title="Make your changes">
+    Follow the code style guidelines and architectural patterns used in the codebase.
+  </Step>
+
+  <Step title="Run quality checks">
+    Before committing, ensure all checks pass:
+    ```bash
+    npm run compile  # Type check
+    npm run lint     # Lint
+    npm run format   # Format
+    npm run test     # Test
+    ```
+  </Step>
+
+  <Step title="Commit your changes">
+    Use conventional commit format (enforced by git hooks):
+    ```bash
+    git add .
+    git commit -m "feat: add database export functionality"
+    ```
+  </Step>
+
+  <Step title="Push and create a PR">
+    ```bash
+    git push origin feat/your-feature-name
+    ```
+    Then open a pull request against `main`.
+  </Step>
+</Steps>
+
+## Project Structure
+
+```
+brainbox/
+├── apps/
+│   ├── server/          # Fastify API + WebSocket server
+│   ├── web/             # React web application
+│   └── desktop/         # Electron desktop app
+├── packages/
+│   ├── core/            # Shared types, schemas, utilities
+│   ├── crdt/            # Yjs CRDT implementation
+│   ├── client/          # Sync engine, queries, mutations
+│   └── ui/              # Radix + TailwindCSS components
+├── hosting/
+│   ├── docker/          # Docker Compose configs
+│   └── kubernetes/      # Helm charts
+└── scripts/             # Build and utility scripts
+```
+
+### Package Responsibilities
+
+| Package             | Purpose                                                 |
+| ------------------- | ------------------------------------------------------- |
+| `@brainbox/core`    | Shared TypeScript types, Zod schemas, node models       |
+| `@brainbox/crdt`    | Yjs document handling and CRDT operations               |
+| `@brainbox/client`  | Client-side sync engine, database, queries, mutations   |
+| `@brainbox/ui`      | Reusable UI components built with Radix and TailwindCSS |
+| `@brainbox/server`  | Fastify API, WebSocket sync, background jobs            |
+| `@brainbox/web`     | React SPA with Vite                                     |
+| `@brainbox/desktop` | Electron wrapper with native SQLite                     |
+
+## Useful Commands
+
+```bash
+npm run dev          # Start all dev servers
+npm run build        # Build all packages
+npm run compile      # Type check all packages
+npm run lint         # Run ESLint
+npm run format       # Format with Prettier
+npm run format:check # Check formatting
+npm run test         # Run tests (Vitest)
+npm run clean        # Clean build artifacts
+npm run watch        # Watch core, crdt, server packages
+```
+
+<Tip>
+  Use `npm run watch` during development to automatically rebuild packages as you make changes.
+</Tip>
+
+## Architecture Overview
+
+### Data Flow
+
+```
+Client SQLite → Local writes → WebSocket sync → PostgreSQL → Yjs CRDT
+```
+
+1. All changes write to local SQLite first (offline-capable)
+2. Sync engine pushes changes via WebSocket
+3. Server persists to PostgreSQL (source of truth)
+4. CRDTs (Yjs) handle conflict resolution
+
+### Node System
+
+Nodes are the core data model. Each node type is defined in `packages/core/src/registry/nodes/`:
+
+- `space` - Top-level workspace container
+- `folder` - Organizational container
+- `page` - Rich text document
+- `database` - Structured data with fields
+- `database-view` - View configuration (table, kanban, etc.)
+- `record` - Database row
+- `field` - Database column definition
+- `file` - Uploaded file
+- `channel` - Chat channel
+- `message` - Chat message
+
+### Adding a New Node Type
+
+<Steps>
+  <Step title="Define the model">
+    Create a new model in `packages/core/src/registry/nodes/`:
+    ```typescript
+    export const myNodeModel: NodeModel = {
+      type: 'my_node',
+      attributesSchema: z.object({
+        type: z.literal('my_node'),
+        name: z.string(),
+      }),
+      canCreate: (ctx) => {
+        // Permission logic
+      },
+      canUpdateAttributes: (ctx) => {
+        // Permission logic
+      },
+      canUpdateDocument: () => false,
+      canDelete: (ctx) => {
+        // Permission logic
+      },
+      canReact: () => false,
+      extractText: (_, attr) => ({ name: attr.name, attributes: null }),
+      extractMentions: () => [],
+    };
+    ```
+  </Step>
+
+  <Step title="Export from the registry">
+    Add the model to the registry exports.
+  </Step>
+
+  <Step title="Add database migrations">
+    Create migrations in `apps/server/src/data/migrations/` and `packages/client/src/databases/`.
+  </Step>
+
+  <Step title="Implement UI components and commands">
+    Build the necessary UI components and command handlers.
+  </Step>
+</Steps>
+
+## Getting Help
+
+- Check existing [GitHub Issues](https://github.com/itskritix/brainbox/issues)
+- Review the documentation
+- Read `CLAUDE.md` for AI-assisted development guidelines
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the Apache 2.0 License.

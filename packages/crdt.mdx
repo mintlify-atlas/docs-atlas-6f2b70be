@@ -1,0 +1,419 @@
+---
+title: '@brainbox/crdt'
+description: Yjs CRDT implementation for conflict-free collaborative editing
+---
+
+## Overview
+
+The `@brainbox/crdt` package provides a Yjs-based CRDT (Conflict-free Replicated Data Type) implementation for real-time collaborative editing. It enables multiple users to edit documents simultaneously with automatic conflict resolution.
+
+## Installation
+
+```bash
+npm install @brainbox/crdt
+```
+
+## Core Concepts
+
+CRDTs allow multiple users to modify the same data structure concurrently without coordination. Changes are automatically merged without conflicts using operational transformation.
+
+Brainbox uses Yjs internally to:
+- Track document state as binary updates
+- Apply updates from multiple sources
+- Support undo/redo operations
+- Merge concurrent changes automatically
+
+## YDoc Class
+
+The main class for managing CRDT documents.
+
+### Constructor
+
+Creates a new YDoc instance with optional initial state.
+
+<ParamField path="state" type="Uint8Array | string | Uint8Array[] | string[]" optional>
+  Initial state as binary update(s) or encoded string(s)
+</ParamField>
+
+```typescript
+import { YDoc } from '@brainbox/crdt';
+
+// Create empty document
+const doc = new YDoc();
+
+// Create from existing state
+const doc = new YDoc(encodedState);
+
+// Create from multiple updates
+const doc = new YDoc([update1, update2, update3]);
+```
+
+### update
+
+Updates the document with validated changes.
+
+<ParamField path="schema" type="z.ZodSchema" required>
+  Zod schema for validation
+</ParamField>
+
+<ParamField path="object" type="z.infer<typeof schema>" required>
+  New object state
+</ParamField>
+
+<ResponseField name="returns" type="Uint8Array | null">
+  Binary update if changes were made, null if no changes
+</ResponseField>
+
+```typescript
+import { YDoc } from '@brainbox/crdt';
+import { z } from 'zod';
+
+const schema = z.object({
+  type: z.literal('page'),
+  name: z.string(),
+  emoji: z.string().optional(),
+});
+
+const doc = new YDoc();
+const update = doc.update(schema, {
+  type: 'page',
+  name: 'My Page',
+  emoji: '📄',
+});
+
+if (update) {
+  // Send update to server
+  await syncUpdate(update);
+}
+```
+
+### applyUpdate
+
+Applies an update from another source.
+
+<ParamField path="update" type="Uint8Array | string" required>
+  Binary update or encoded string
+</ParamField>
+
+```typescript
+// Apply binary update
+doc.applyUpdate(binaryUpdate);
+
+// Apply encoded update
+doc.applyUpdate(encodedString);
+```
+
+### getObject
+
+Retrieves the current document state.
+
+<ResponseField name="returns" type="T">
+  Current object state
+</ResponseField>
+
+```typescript
+const page = doc.getObject<PageAttributes>();
+console.log(page.name); // 'My Page'
+```
+
+### getState
+
+Gets the complete document state as binary.
+
+<ResponseField name="returns" type="Uint8Array">
+  Binary state vector
+</ResponseField>
+
+```typescript
+const state = doc.getState();
+await saveState(state);
+```
+
+### getEncodedState
+
+Gets the document state as encoded string.
+
+<ResponseField name="returns" type="string">
+  Base64-encoded state
+</ResponseField>
+
+```typescript
+const encoded = doc.getEncodedState();
+await database.saveState(nodeId, encoded);
+```
+
+### undo
+
+Undoes the last change.
+
+<ResponseField name="returns" type="Uint8Array | null">
+  Undo update or null if nothing to undo
+</ResponseField>
+
+```typescript
+const undoUpdate = doc.undo();
+if (undoUpdate) {
+  await syncUpdate(undoUpdate);
+}
+```
+
+### redo
+
+Redoes the last undone change.
+
+<ResponseField name="returns" type="Uint8Array | null">
+  Redo update or null if nothing to redo
+</ResponseField>
+
+```typescript
+const redoUpdate = doc.redo();
+if (redoUpdate) {
+  await syncUpdate(redoUpdate);
+}
+```
+
+## Encoding Utilities
+
+### encodeState
+
+Encodes binary state to base64 string.
+
+<ParamField path="state" type="Uint8Array" required>
+  Binary state
+</ParamField>
+
+<ResponseField name="returns" type="string">
+  Base64-encoded string
+</ResponseField>
+
+```typescript
+import { encodeState } from '@brainbox/crdt';
+
+const encoded = encodeState(binaryState);
+```
+
+### decodeState
+
+Decodes base64 string to binary state.
+
+<ParamField path="state" type="string" required>
+  Base64-encoded string
+</ParamField>
+
+<ResponseField name="returns" type="Uint8Array">
+  Binary state
+</ResponseField>
+
+```typescript
+import { decodeState } from '@brainbox/crdt';
+
+const binary = decodeState(encodedString);
+```
+
+### mergeUpdates
+
+Merges multiple updates into a single update.
+
+<ParamField path="updates" type="Uint8Array[]" required>
+  Array of binary updates
+</ParamField>
+
+<ResponseField name="returns" type="Uint8Array">
+  Merged update
+</ResponseField>
+
+```typescript
+import { mergeUpdates } from '@brainbox/crdt';
+
+const merged = mergeUpdates([update1, update2, update3]);
+```
+
+## Usage Examples
+
+### Page Attributes
+
+```typescript
+import { YDoc } from '@brainbox/crdt';
+import { z } from 'zod';
+
+const pageSchema = z.object({
+  type: z.literal('page'),
+  name: z.string(),
+  emoji: z.string().optional(),
+  collaborators: z.record(z.enum(['admin', 'member', 'viewer'])).optional(),
+});
+
+// Initialize
+const doc = new YDoc();
+
+// Update name
+const update1 = doc.update(pageSchema, {
+  type: 'page',
+  name: 'Project Plan',
+});
+
+// Add emoji
+const update2 = doc.update(pageSchema, {
+  ...doc.getObject(),
+  emoji: '📋',
+});
+
+// Add collaborator
+const update3 = doc.update(pageSchema, {
+  ...doc.getObject(),
+  collaborators: {
+    user123: 'admin',
+  },
+});
+```
+
+### Database Record
+
+```typescript
+const recordSchema = z.object({
+  type: z.literal('record'),
+  databaseId: z.string(),
+  index: z.string(),
+  fieldValues: z.record(z.unknown()).optional(),
+});
+
+const doc = new YDoc();
+
+// Create record
+const update1 = doc.update(recordSchema, {
+  type: 'record',
+  databaseId: 'db123',
+  index: '0',
+});
+
+// Set field values
+const update2 = doc.update(recordSchema, {
+  ...doc.getObject(),
+  fieldValues: {
+    name: 'Task 1',
+    status: 'in_progress',
+    priority: 'high',
+  },
+});
+```
+
+### Collaborative Editing Flow
+
+```typescript
+import { YDoc, encodeState, decodeState } from '@brainbox/crdt';
+
+// User A initializes document
+const docA = new YDoc();
+const update1 = docA.update(schema, { name: 'Draft' });
+
+// Send update1 to server
+await sync.send(update1);
+
+// User B receives update and applies it
+const docB = new YDoc();
+docB.applyUpdate(update1);
+
+// User B makes a change
+const update2 = docB.update(schema, {
+  ...docB.getObject(),
+  name: 'Final',
+});
+
+// User A receives and applies User B's update
+docA.applyUpdate(update2);
+
+// Both documents now have the same state
+console.log(docA.getObject().name); // 'Final'
+console.log(docB.getObject().name); // 'Final'
+```
+
+### Undo/Redo
+
+```typescript
+const doc = new YDoc();
+
+// Make changes
+doc.update(schema, { name: 'Version 1' });
+doc.update(schema, { name: 'Version 2' });
+doc.update(schema, { name: 'Version 3' });
+
+console.log(doc.getObject().name); // 'Version 3'
+
+// Undo
+const undoUpdate1 = doc.undo();
+console.log(doc.getObject().name); // 'Version 2'
+
+// Undo again
+const undoUpdate2 = doc.undo();
+console.log(doc.getObject().name); // 'Version 1'
+
+// Redo
+const redoUpdate = doc.redo();
+console.log(doc.getObject().name); // 'Version 2'
+```
+
+### Persistence
+
+```typescript
+import { YDoc, encodeState, decodeState } from '@brainbox/crdt';
+
+// Save to database
+const doc = new YDoc();
+doc.update(schema, data);
+const encoded = doc.getEncodedState();
+await db.save(nodeId, encoded);
+
+// Load from database
+const stored = await db.load(nodeId);
+const restored = new YDoc(stored);
+console.log(restored.getObject());
+```
+
+## Type Support
+
+YDoc supports complex nested Zod schemas:
+
+- **Objects**: Nested object structures
+- **Arrays**: Lists of items
+- **Records**: Key-value maps
+- **Strings**: Text values with efficient diff tracking
+- **Primitives**: Numbers, booleans, etc.
+- **Unions**: Discriminated unions
+- **Optional/Nullable**: Optional and nullable fields
+
+```typescript
+const complexSchema = z.object({
+  title: z.string(),
+  tags: z.array(z.string()),
+  metadata: z.record(z.string()),
+  settings: z.object({
+    enabled: z.boolean(),
+    priority: z.number(),
+  }).optional(),
+});
+
+const doc = new YDoc();
+doc.update(complexSchema, {
+  title: 'Document',
+  tags: ['important', 'draft'],
+  metadata: { author: 'John' },
+  settings: { enabled: true, priority: 1 },
+});
+```
+
+## Performance
+
+- Updates are incremental - only changes are encoded
+- Binary format is compact and efficient
+- String fields use character-level diffing
+- Arrays use positional tracking
+- Automatic garbage collection of undo history
+
+## Best Practices
+
+1. **Always validate with schemas** - Use Zod schemas to ensure type safety
+2. **Encode for storage** - Use `getEncodedState()` for database persistence
+3. **Merge updates** - Use `mergeUpdates()` to combine multiple updates before storage
+4. **Handle null updates** - Check if `update()` returns null (no changes)
+5. **Broadcast updates** - Send all non-null updates to other clients
+6. **Apply in order** - Apply updates in the order received for consistency

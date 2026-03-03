@@ -1,0 +1,373 @@
+---
+title: "Creating nodes"
+description: "Add new node types to extend Brainbox functionality"
+icon: "cube"
+---
+
+Nodes are the core building blocks of Brainbox. Each node type (space, folder, page, database, etc.) defines its own schema, permissions, and behavior.
+
+## Overview
+
+Node models are defined in `packages/core/src/registry/nodes/` and consist of:
+
+- Attribute schema (Zod validation)
+- Permission handlers (create, update, delete, react)
+- Text extraction (for search)
+- Mention extraction (for @mentions)
+
+## Step-by-step guide
+
+<Steps>
+<Step title="Define the node model">
+
+Create a new file in `packages/core/src/registry/nodes/`. Each node model must implement the `NodeModel` interface.
+
+```typescript packages/core/src/registry/nodes/task.ts
+import { z } from 'zod/v4';
+import { extractNodeRole } from '@brainbox/core/lib/nodes';
+import { hasNodeRole } from '@brainbox/core/lib/permissions';
+import { NodeModel } from '@brainbox/core/registry/nodes/core';
+
+export const taskAttributesSchema = z.object({
+  type: z.literal('task'),
+  name: z.string(),
+  parentId: z.string(),
+  status: z.enum(['todo', 'in_progress', 'done']),
+  assigneeId: z.string().nullable().optional(),
+  index: z.string().nullable().optional(),
+});
+
+export type TaskAttributes = z.infer<typeof taskAttributesSchema>;
+
+export const taskModel: NodeModel = {
+  type: 'task',
+  attributesSchema: taskAttributesSchema,
+  canCreate: (context) => {
+    if (context.tree.length === 0) {
+      return false;
+    }
+
+    const role = extractNodeRole(
+      context.tree,
+      context.user.id,
+      context.user.role
+    );
+    if (!role) {
+      return false;
+    }
+
+    return hasNodeRole(role, 'member');
+  },
+  canUpdateAttributes: (context) => {
+    if (context.tree.length === 0) {
+      return false;
+    }
+
+    const role = extractNodeRole(
+      context.tree,
+      context.user.id,
+      context.user.role
+    );
+    if (!role) {
+      return false;
+    }
+
+    return hasNodeRole(role, 'member');
+  },
+  canUpdateDocument: () => {
+    return false;
+  },
+  canDelete: (context) => {
+    if (context.tree.length === 0) {
+      return false;
+    }
+
+    const role = extractNodeRole(
+      context.tree,
+      context.user.id,
+      context.user.role
+    );
+    if (!role) {
+      return false;
+    }
+
+    return hasNodeRole(role, 'admin');
+  },
+  canReact: () => {
+    return false;
+  },
+  extractText: (_, attributes) => {
+    if (attributes.type !== 'task') {
+      throw new Error('Invalid node type');
+    }
+
+    return {
+      name: attributes.name,
+      attributes: null,
+    };
+  },
+  extractMentions: () => {
+    return [];
+  },
+};
+```
+
+</Step>
+
+<Step title="Register the node type">
+
+Add your node model to the registry in `packages/core/src/registry/nodes/index.ts`:
+
+```typescript packages/core/src/registry/nodes/index.ts
+import { TaskAttributes, taskModel } from './task';
+
+// Add to type union
+export type TaskNode = NodeBase & {
+  type: 'task';
+  attributes: TaskAttributes;
+};
+
+// Add to NodeAttributes union
+export type NodeAttributes =
+  | SpaceAttributes
+  | TaskAttributes  // Add here
+  | ...
+
+// Add to Node union
+export type Node =
+  | SpaceNode
+  | TaskNode  // Add here
+  | ...
+
+// Add to getNodeModel function
+export const getNodeModel = (type: NodeType) => {
+  switch (type) {
+    case 'task':
+      return taskModel;
+    // ... other cases
+  }
+};
+```
+
+</Step>
+
+<Step title="Add database migrations">
+
+Create migrations for both server (PostgreSQL) and client (SQLite) databases.
+
+**Server migration** (`apps/server/src/data/migrations/`):
+
+```typescript
+import { Kysely } from 'kysely';
+
+export async function up(db: Kysely<any>): Promise<void> {
+  // Nodes table already exists, no schema changes needed
+  // unless adding new tables for node-specific data
+}
+
+export async function down(db: Kysely<any>): Promise<void> {
+  // Rollback logic if needed
+}
+```
+
+**Client migration** (`packages/client/src/databases/migrations/`):
+
+```typescript
+import { Kysely } from 'kysely';
+
+export async function up(db: Kysely<any>): Promise<void> {
+  // Client database schema updates if needed
+}
+
+export async function down(db: Kysely<any>): Promise<void> {
+  // Rollback logic
+}
+```
+
+<Warning>
+Node attributes are stored as JSON in the `attributes` column. You typically don't need schema changes unless adding separate tables for node-specific relational data.
+</Warning>
+
+</Step>
+
+<Step title="Add ID generation">
+
+Add your node type to the ID generator in `packages/core/src/lib/ids.ts`:
+
+```typescript
+export enum IdType {
+  Task = 'task',
+  // ... other types
+}
+
+export const generateId = (type: IdType): string => {
+  return `${type}_${nanoid()}`;
+};
+```
+
+</Step>
+</Steps>
+
+## Permission patterns
+
+Brainbox uses a role-based permission system with three levels:
+
+- **admin**: Full control (create, update, delete)
+- **member**: Can create and edit content
+- **viewer**: Read-only access
+
+### Common permission patterns
+
+<CodeGroup>
+
+```typescript Member-level permissions
+canCreate: (context) => {
+  if (context.tree.length === 0) {
+    return false;
+  }
+
+  const role = extractNodeRole(
+    context.tree,
+    context.user.id,
+    context.user.role
+  );
+  if (!role) {
+    return false;
+  }
+
+  return hasNodeRole(role, 'member');
+}
+```
+
+```typescript Owner-only permissions
+canUpdateAttributes: (context) => {
+  if (context.tree.length === 0) {
+    return false;
+  }
+
+  const role = extractNodeRole(
+    context.tree,
+    context.user.id,
+    context.user.role
+  );
+  if (!role) {
+    return false;
+  }
+
+  // Only creator or admin can update
+  return (
+    context.node.createdBy === context.user.id ||
+    hasNodeRole(role, 'admin')
+  );
+}
+```
+
+```typescript Parent-based permissions
+canCreate: (context) => {
+  if (context.tree.length === 0) {
+    return false;
+  }
+
+  const role = extractNodeRole(
+    context.tree,
+    context.user.id,
+    context.user.role
+  );
+  if (!role) {
+    return false;
+  }
+
+  const parent = context.tree[context.tree.length - 1]!;
+  if (parent.type === 'message') {
+    // Different permission for message children
+    return hasNodeRole(role, 'viewer');
+  }
+
+  return hasNodeRole(role, 'member');
+}
+```
+
+</CodeGroup>
+
+## Document support
+
+To enable rich text editing for your node type, add a document schema:
+
+```typescript
+import { richTextContentSchema } from '@brainbox/core/registry/documents/rich-text';
+
+export const taskModel: NodeModel = {
+  type: 'task',
+  attributesSchema: taskAttributesSchema,
+  documentSchema: richTextContentSchema,  // Add this
+  canUpdateDocument: (context) => {  // Enable document editing
+    const role = extractNodeRole(
+      context.tree,
+      context.user.id,
+      context.user.role
+    );
+    return role ? hasNodeRole(role, 'member') : false;
+  },
+  // ... other methods
+};
+```
+
+## Text extraction for search
+
+The `extractText` method makes node content searchable:
+
+```typescript
+import { extractBlockTexts } from '@brainbox/core/lib/texts';
+
+extractText: (id, attributes) => {
+  if (attributes.type !== 'task') {
+    throw new Error('Invalid node type');
+  }
+
+  // For simple attributes
+  return {
+    name: attributes.name,
+    attributes: `Status: ${attributes.status}`,
+  };
+
+  // For block-based content (messages, etc.)
+  const attributesText = extractBlockTexts(id, attributes.content);
+  return {
+    name: attributes.name,
+    attributes: attributesText,
+  };
+}
+```
+
+## Mention extraction
+
+If your node supports @mentions, implement `extractMentions`:
+
+```typescript
+import { extractBlocksMentions } from '@brainbox/core/lib/mentions';
+
+extractMentions: (id, attributes) => {
+  if (attributes.type !== 'task') {
+    throw new Error('Invalid node type');
+  }
+
+  // Extract mentions from block content
+  return extractBlocksMentions(id, attributes.content);
+}
+```
+
+## Next steps
+
+After creating your node model:
+
+1. Create mutations in `packages/client/src/mutations/` for create/update/delete operations
+2. Add UI components in `packages/ui/src/components/`
+3. Create API routes in `apps/server/src/api/client/routes/`
+4. Add commands if needed in `packages/client/src/commands/`
+
+## File locations
+
+- Node models: `packages/core/src/registry/nodes/[type].ts`
+- Type exports: `packages/core/src/registry/nodes/index.ts`
+- Server migrations: `apps/server/src/data/migrations/`
+- Client migrations: `packages/client/src/databases/migrations/`

@@ -1,0 +1,264 @@
+---
+title: 'Pages'
+description: 'Create rich text documents with blocks, formatting, and nested content'
+icon: 'file-lines'
+---
+
+Pages are Brainbox's core document type, providing a flexible canvas for notes, documentation, and content creation. Each page uses a block-based editor that supports rich formatting, embeds, and real-time collaboration.
+
+## Creating Pages
+
+Pages can be created anywhere in your workspace hierarchy. Each page has:
+
+- **Name** - The page title
+- **Avatar** - Optional emoji or icon
+- **Content** - Rich text blocks with formatting
+- **Parent** - The folder or space containing the page
+
+<Steps>
+  <Step title="Create a new page">
+    Click the **+** button in any folder or space, then select **Page** from the menu.
+  </Step>
+  
+  <Step title="Add a title">
+    Enter a descriptive name for your page. You can change this anytime.
+  </Step>
+  
+  <Step title="Start writing">
+    Begin typing to add content. Use `/` to open the block menu and insert different block types.
+  </Step>
+</Steps>
+
+## Block-Based Editing
+
+Pages use a rich text editor built on **ProseMirror** with support for multiple block types. Each block can contain:
+
+<CardGroup cols={2}>
+  <Card title="Text Content" icon="paragraph">
+    Paragraphs with inline formatting (bold, italic, code, links)
+  </Card>
+  
+  <Card title="Headings" icon="heading">
+    Structure your content with H1, H2, and H3 headings
+  </Card>
+  
+  <Card title="Lists" icon="list">
+    Ordered and unordered lists with nested items
+  </Card>
+  
+  <Card title="Code Blocks" icon="code">
+    Syntax-highlighted code with language support
+  </Card>
+  
+  <Card title="Quotes" icon="quote-left">
+    Block quotes for highlighting important content
+  </Card>
+  
+  <Card title="Dividers" icon="minus">
+    Horizontal rules to separate sections
+  </Card>
+</CardGroup>
+
+### Block Structure
+
+Each block in the page is stored with:
+
+- **ID** - Unique identifier for the block
+- **Type** - Block type (paragraph, heading, list, etc.)
+- **Content** - Text content with marks (formatting)
+- **Attributes** - Block-specific settings (heading level, code language)
+- **Index** - Position in the document
+- **Parent ID** - For nested blocks (list items)
+
+```typescript
+{
+  id: "block_abc123",
+  type: "paragraph",
+  content: [
+    {
+      type: "text",
+      text: "Hello world",
+      marks: [
+        { type: "bold" },
+        { type: "italic" }
+      ]
+    }
+  ],
+  index: "a0",
+  parentId: null
+}
+```
+
+## Inline Formatting
+
+Apply rich formatting to text within blocks:
+
+<Tabs>
+  <Tab title="Keyboard Shortcuts">
+    | Shortcut | Format |
+    |----------|--------|
+    | `Cmd/Ctrl + B` | **Bold** |
+    | `Cmd/Ctrl + I` | *Italic* |
+    | `Cmd/Ctrl + U` | Underline |
+    | `Cmd/Ctrl + K` | Link |
+    | `Cmd/Ctrl + E` | `Code` |
+    | `Cmd/Ctrl + Shift + S` | ~~Strikethrough~~ |
+  </Tab>
+  
+  <Tab title="Markdown Support">
+    Type markdown syntax and it converts automatically:
+    
+    - `**bold**` → **bold**
+    - `*italic*` → *italic*
+    - `` `code` `` → `code`
+    - `[link](url)` → [link](#)
+    - `# Heading` → Heading 1
+    - `## Heading` → Heading 2
+    - `- item` → Bullet list
+    - `1. item` → Numbered list
+  </Tab>
+  
+  <Tab title="Slash Commands">
+    Press `/` to open the block menu:
+    
+    - `/h1`, `/h2`, `/h3` - Headings
+    - `/code` - Code block
+    - `/quote` - Block quote
+    - `/todo` - Checklist
+    - `/divider` - Horizontal rule
+  </Tab>
+</Tabs>
+
+## Page Organization
+
+Pages support hierarchical organization:
+
+<Info>
+  Pages can be nested inside folders or other pages to create a tree structure. Use drag-and-drop to reorganize your content.
+</Info>
+
+### Page Hierarchy
+
+```
+Workspace (Space)
+├── Getting Started (Folder)
+│   ├── Welcome (Page)
+│   └── Quick Start (Page)
+├── Projects (Folder)
+│   ├── Project A (Page)
+│   │   ├── Meeting Notes (Page)
+│   │   └── Tasks (Page)
+│   └── Project B (Page)
+└── Archive (Folder)
+```
+
+## Permissions
+
+Page access is controlled by workspace roles:
+
+| Role | Create | Edit | Delete |
+|------|--------|------|--------|
+| **Admin** | ✓ | ✓ | ✓ |
+| **Member** | ✓ | ✓ | ✓ |
+| **Viewer** | ✗ | ✗ | ✗ |
+| **Guest** | ✗ | ✗ | ✗ |
+
+<Note>
+  Members can create, edit, and delete pages in any space where they have member-level access. Permissions are inherited from parent folders and spaces.
+</Note>
+
+## Real-Time Collaboration
+
+Multiple users can edit the same page simultaneously:
+
+<CardGroup cols={2}>
+  <Card title="Live Cursors" icon="mouse-pointer">
+    See where other users are typing in real-time
+  </Card>
+  
+  <Card title="Conflict Resolution" icon="code-merge">
+    CRDT technology automatically merges changes without conflicts
+  </Card>
+  
+  <Card title="Offline Editing" icon="wifi-slash">
+    Keep working offline - changes sync when reconnected
+  </Card>
+  
+  <Card title="Version History" icon="clock-rotate-left">
+    Track changes and restore previous versions
+  </Card>
+</CardGroup>
+
+See [Collaboration](/features/collaboration) for more details on real-time editing.
+
+## Working Offline
+
+Pages are stored in your local SQLite database, allowing full offline functionality:
+
+<Steps>
+  <Step title="Offline editing">
+    All page edits save to your local database immediately, even without internet.
+  </Step>
+  
+  <Step title="Background sync">
+    When reconnected, changes automatically sync to the server.
+  </Step>
+  
+  <Step title="Conflict resolution">
+    If multiple users edited offline, CRDTs merge changes intelligently.
+  </Step>
+</Steps>
+
+<Warning>
+  While offline, you can only access pages that were previously loaded. New pages created by others won't appear until you reconnect.
+</Warning>
+
+## Page Metadata
+
+Each page stores additional metadata:
+
+- **Created At** - When the page was created
+- **Created By** - User who created the page
+- **Updated At** - Last modification time
+- **Updated By** - User who made the last change
+- **Index** - Position in the parent container
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use descriptive titles">
+    Clear, specific titles make pages easier to find and organize. Use sentence case for readability.
+  </Accordion>
+  
+  <Accordion title="Structure with headings">
+    Break long pages into sections with H2 and H3 headings for better navigation and readability.
+  </Accordion>
+  
+  <Accordion title="Keep related content together">
+    Use nested pages or folders to group related documentation, notes, or project materials.
+  </Accordion>
+  
+  <Accordion title="Link between pages">
+    Create connections between related pages using inline links to build a knowledge graph.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Databases" icon="table" href="/features/databases">
+    Create structured data with custom fields and views
+  </Card>
+  
+  <Card title="Files" icon="file" href="/features/files">
+    Upload and manage files in your pages
+  </Card>
+  
+  <Card title="Collaboration" icon="users" href="/features/collaboration">
+    Learn about real-time editing and offline sync
+  </Card>
+  
+  <Card title="Chat" icon="comments" href="/features/chat">
+    Discuss pages with your team in channels
+  </Card>
+</CardGroup>

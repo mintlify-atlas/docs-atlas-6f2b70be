@@ -1,80 +1,251 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Get started with Brainbox in under 5 minutes. Create your first workspace, add pages, and start collaborating."
 ---
 
-## Get started in three steps
+## Get up and running
 
-Get your documentation site running locally and make your first customization.
+This guide will take you from zero to your first workspace with pages, databases, and collaboration in just a few minutes.
 
-### Step 1: Set up your local environment
+<Note>
+  **New to Brainbox?** Try the [online demo](https://brainbox.sh/) first, or follow this guide to install locally.
+</Note>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+## Step 1: Choose your platform
+
+<Tabs>
+  <Tab title="Web app">
+    The fastest way to get started:
+
+    <Steps>
+      <Step title="Visit brainbox.sh">
+        Open [brainbox.sh](https://brainbox.sh/) in a modern browser (Chrome, Edge, or Firefox)
+        
+        <Warning>
+          Safari and mobile browsers are not currently supported due to OPFS requirements.
+        </Warning>
+      </Step>
+      <Step title="Create an account">
+        Click **Sign up** and create your account with email or Google
+      </Step>
+      <Step title="Verify your email">
+        Check your inbox and click the verification link (or use automatic verification if enabled)
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Desktop app">
+    For the best offline experience:
+
+    <Steps>
+      <Step title="Download the installer">
+        Get the latest release from [GitHub Releases](https://github.com/brainbox/brainbox/releases)
+        
+        - **macOS**: Download `.dmg` file
+        - **Windows**: Download `.exe` installer  
+        - **Linux**: Download `.deb` or `.rpm` package
+      </Step>
+      <Step title="Install Brainbox">
+        Run the installer and follow the platform-specific instructions
+      </Step>
+      <Step title="Launch and sign in">
+        Open Brainbox and create your account or sign in to an existing server
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Self-hosted">
+    Deploy your own instance:
+
+    <Steps>
+      <Step title="Prerequisites">
+        Ensure you have Docker and Docker Compose installed
+      </Step>
+      <Step title="Clone and configure">
+        ```bash
+        git clone https://github.com/brainbox/brainbox.git
+        cd brainbox/hosting/docker
+        cp .env.example .env
+        ```
+        
+        Edit `.env` and set secure passwords for PostgreSQL, Redis, and MinIO
+      </Step>
+      <Step title="Start services">
+        ```bash
+        docker compose up -d
+        ```
+        
+        Access your instance at `http://localhost:4000`
+      </Step>
+    </Steps>
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    <Tip>
+      See the [Docker installation guide](/self-hosting/docker) for detailed configuration options.
+    </Tip>
+  </Tab>
+</Tabs>
+
+## Step 2: Create your first workspace
+
+Workspaces are containers for all your content—pages, databases, files, and chat channels.
+
+<Steps>
+  <Step title="Click 'New workspace'">
+    After signing in, click the **+ New workspace** button in the sidebar
+  </Step>
+  <Step title="Name your workspace">
+    Give it a descriptive name like "Personal" or "Team Docs"
+  </Step>
+  <Step title="Choose an icon (optional)">
+    Select an emoji or upload a custom icon to personalize your workspace
+  </Step>
+</Steps>
+
+## Step 3: Add your first page
+
+Pages are the foundation of Brainbox—they support rich text, blocks, and nested content.
+
+<Steps>
+  <Step title="Create a new page">
+    In your workspace, click **+ New page** or press `Cmd/Ctrl + N`
+  </Step>
+  <Step title="Add a title">
+    Click the title area and type your page name
+  </Step>
+  <Step title="Start writing">
+    Click in the editor and start typing. Try these commands:
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    - Type `/` to see the block menu
+    - `# Heading` for headings
+    - `- List item` for bullet lists  
+    - `[ ] Task` for checkboxes
+  </Step>
+  <Step title="Add nested pages">
+    Hover over a page in the sidebar and click **+** to create a sub-page
+  </Step>
+</Steps>
 
-### Step 2: Deploy your changes
+<Tip>
+  Pages auto-save as you type—no need to manually save!
+</Tip>
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+## Step 4: Create a database
+
+Databases let you organize structured data with custom fields and multiple views.
+
+<Steps>
+  <Step title="Create a database">
+    Click **+ New** → **Database** or type `/database` in a page
+  </Step>
+  <Step title="Name your database">
+    Give it a name like "Tasks" or "Projects"
+  </Step>
+  <Step title="Add custom fields">
+    Click **+ Add field** to create columns:
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    - **Text**: Names, descriptions, URLs
+    - **Number**: Quantities, prices, scores
+    - **Select**: Categories, statuses, priorities  
+    - **Date**: Deadlines, due dates
+    - **Checkbox**: Completed, active flags
+  </Step>
+  <Step title="Add records">
+    Click **+ New record** to add rows to your database
+  </Step>
+  <Step title="Switch views">
+    Click the view dropdown to toggle between:
+    
+    - **Table**: Spreadsheet-style grid
+    - **Kanban**: Card-based board grouped by select field
+    - **Calendar**: Timeline view for date fields
+  </Step>
+</Steps>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+## Step 5: Collaborate with your team
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+Invite others to collaborate on your workspace with granular permissions.
 
-### Step 3: Go live
+<Steps>
+  <Step title="Invite members">
+    Click **Settings** → **Members** → **Invite**
+    
+    Enter their email address and choose a role:
+    - **Admin**: Full access including settings
+    - **Member**: Can create and edit content  
+    - **Guest**: View-only or limited access
+  </Step>
+  <Step title="Share specific pages">
+    Right-click any page → **Share** → Add specific collaborators
+  </Step>
+  <Step title="Real-time editing">
+    When multiple users edit the same page, you'll see their cursors and changes in real-time
+  </Step>
+</Steps>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+## Step 6: Try chat and files
 
-## Next steps
+<Tabs>
+  <Tab title="Chat">
+    <Steps>
+      <Step title="Create a channel">
+        Click **+ New** → **Channel** to create a team chat
+      </Step>
+      <Step title="Send messages">
+        Type and press Enter to send. Use `@mention` to notify teammates
+      </Step>
+      <Step title="Add collaborators">
+        Click channel settings → **Add members** to invite specific people
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Files">
+    <Steps>
+      <Step title="Upload files">
+        Drag and drop files into any page or click **+ New** → **File**
+      </Step>
+      <Step title="Organize in folders">
+        Create folders to keep files organized by project or category
+      </Step>
+      <Step title="Preview and download">
+        Click any file to preview or download it
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
 
-Now that you have your docs running, explore these key features:
+## What's next?
+
+Now that you have your first workspace set up, explore these features:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card
+    title="Pages and blocks"
+    icon="file-lines"
+    href="/features/pages"
+  >
+    Learn advanced editing features and block types
+  </Card>
+  <Card
+    title="Database views"
+    icon="table"
+    href="/features/databases"
+  >
+    Master filters, sorts, and custom views
+  </Card>
+  <Card
+    title="Team collaboration"
+    icon="users"
+    href="/features/collaboration"
+  >
+    Permissions, sharing, and real-time editing
+  </Card>
+  <Card
+    title="Offline mode"
+    icon="plane"
+    href="/architecture/local-first"
+  >
+    How offline-first sync works in Brainbox
+  </Card>
 </CardGroup>
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  **Need help?** Join our [GitHub Discussions](https://github.com/brainbox/brainbox/discussions) or report issues on [GitHub](https://github.com/brainbox/brainbox/issues).
 </Note>

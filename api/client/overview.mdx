@@ -1,0 +1,259 @@
+---
+title: Client API Overview
+description: Learn how to use the Brainbox client package for local-first data management
+---
+
+## Introduction
+
+The `@brainbox/client` package provides a complete client-side API for building local-first applications with Brainbox. It handles local SQLite databases, synchronization with the server, and provides type-safe queries and mutations.
+
+## Installation
+
+The client package is included in the Brainbox monorepo:
+
+```bash
+npm install @brainbox/client
+```
+
+## Package Exports
+
+The client package exposes several modules:
+
+```typescript
+import { /* types */ } from '@brainbox/client/types';
+import { /* utilities */ } from '@brainbox/client/lib';
+import { /* handlers */ } from '@brainbox/client/handlers';
+import { /* database */ } from '@brainbox/client/databases';
+import { /* services */ } from '@brainbox/client/services';
+import { /* query types */ } from '@brainbox/client/queries';
+import { /* mutation types */ } from '@brainbox/client/mutations';
+```
+
+## Core Services
+
+### AppService
+
+The main entry point for the client application. Manages servers, accounts, and workspaces.
+
+```typescript
+import { AppService } from '@brainbox/client/services';
+
+const app = new AppService(meta, fs, kysely, path);
+await app.init();
+
+// Access accounts and servers
+const account = app.getAccount(accountId);
+const server = app.getServer(domain);
+```
+
+### AccountService
+
+Manages a single account, including its workspaces and authentication.
+
+```typescript
+const account = app.getAccount(accountId);
+const workspace = account.getWorkspace(workspaceId);
+```
+
+### WorkspaceService
+
+Provides access to workspace-specific services:
+
+```typescript
+const workspace = account.getWorkspace(workspaceId);
+
+// Access workspace services
+workspace.nodes        // Node management
+workspace.documents    // Document/CRDT operations
+workspace.files        // File management
+workspace.mutations    // Mutation queue
+workspace.users        // User management
+workspace.synchronizer // Sync engine
+```
+
+## Mediator Pattern
+
+The `Mediator` class provides a centralized way to execute queries and mutations:
+
+```typescript
+import { Mediator } from '@brainbox/client/handlers';
+
+const mediator = new Mediator(app);
+
+// Execute a query
+const nodes = await mediator.executeQuery({
+  type: 'node.list',
+  accountId,
+  workspaceId,
+  parentId
+});
+
+// Execute a mutation
+const result = await mediator.executeMutation({
+  type: 'page.create',
+  accountId,
+  workspaceId,
+  parentId,
+  name: 'New Page'
+});
+```
+
+## Local Databases
+
+Brainbox uses SQLite for local storage with separate databases for:
+
+- **App Database**: Stores servers, accounts, and global metadata
+- **Account Database**: Stores workspace metadata for an account
+- **Workspace Database**: Stores nodes, documents, and workspace-specific data
+
+### Database Access
+
+```typescript
+import { openDatabase } from '@brainbox/client/databases';
+
+// App database
+const appDb = app.database;
+
+// Workspace database
+const workspaceDb = workspace.database;
+
+// Direct SQL queries with Kysely
+const spaces = await workspaceDb
+  .selectFrom('nodes')
+  .selectAll()
+  .where('type', '=', 'space')
+  .execute();
+```
+
+## Error Handling
+
+### Query Errors
+
+```typescript
+import { QueryError, QueryErrorCode } from '@brainbox/client/queries';
+
+try {
+  const node = await mediator.executeQuery({
+    type: 'node.get',
+    nodeId,
+    accountId,
+    workspaceId
+  });
+} catch (error) {
+  if (error instanceof QueryError) {
+    switch (error.code) {
+      case QueryErrorCode.AccountNotFound:
+        // Handle account not found
+        break;
+      case QueryErrorCode.WorkspaceNotFound:
+        // Handle workspace not found
+        break;
+      case QueryErrorCode.ApiError:
+        // Handle API error
+        break;
+    }
+  }
+}
+```
+
+### Mutation Errors
+
+```typescript
+import { MutationError, MutationErrorCode } from '@brainbox/client/mutations';
+
+const result = await mediator.executeMutation({
+  type: 'space.create',
+  accountId,
+  workspaceId,
+  name: 'My Space',
+  description: 'Space description'
+});
+
+if (!result.success) {
+  const { code, message } = result.error;
+  
+  switch (code) {
+    case MutationErrorCode.SpaceCreateForbidden:
+      // Handle permission error
+      break;
+    case MutationErrorCode.SpaceCreateFailed:
+      // Handle creation failure
+      break;
+  }
+}
+```
+
+## Type System
+
+### Query Types
+
+All queries extend the base `QueryMap` interface:
+
+```typescript
+export interface QueryMap {
+  'node.get': {
+    input: NodeGetQueryInput;
+    output: LocalNode | null;
+  };
+  'workspace.list': {
+    input: WorkspaceListQueryInput;
+    output: Workspace[];
+  };
+  // ... more queries
+}
+
+export type QueryInput = QueryMap[keyof QueryMap]['input'];
+```
+
+### Mutation Types
+
+All mutations extend the base `MutationMap` interface:
+
+```typescript
+export interface MutationMap {
+  'space.create': {
+    input: SpaceCreateMutationInput;
+    output: SpaceCreateMutationOutput;
+  };
+  // ... more mutations
+}
+
+export type MutationInput = MutationMap[keyof MutationMap]['input'];
+
+export type MutationResult<T extends MutationInput> =
+  | SuccessMutationResult<T>
+  | ErrorMutationResult;
+```
+
+## Synchronization
+
+The client automatically syncs local changes to the server:
+
+```typescript
+// Mutations are queued locally
+await mediator.executeMutation({
+  type: 'page.update',
+  accountId,
+  workspaceId,
+  pageId,
+  name: 'Updated Name'
+});
+
+// Sync is triggered automatically
+// Or manually trigger sync
+await workspace.mutations.sync();
+```
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Queries" icon="magnifying-glass" href="/api/client/queries">
+    Browse all available query functions
+  </Card>
+  <Card title="Mutations" icon="pen-to-square" href="/api/client/mutations">
+    Explore mutation functions for data updates
+  </Card>
+  <Card title="Node Types" icon="diagram-project" href="/api/nodes/space">
+    Learn about different node types
+  </Card>
+</CardGroup>

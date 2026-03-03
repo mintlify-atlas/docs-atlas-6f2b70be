@@ -1,0 +1,650 @@
+---
+title: CRDT Conflict Resolution
+description: Yjs-based CRDT implementation for conflict-free collaboration in Brainbox
+---
+
+Brainbox uses Conflict-free Replicated Data Types (CRDTs) via Yjs to enable real-time collaboration without conflicts, even when users edit the same document simultaneously or offline.
+
+## What are CRDTs?
+
+CRDTs are data structures that can be replicated across multiple devices, modified independently, and merged automatically without conflicts.
+
+### Key Properties
+
+- **Commutative**: Operations can be applied in any order
+- **Associative**: Grouping of operations doesn't matter
+- **Idempotent**: Applying same operation twice has no additional effect
+
+### Result
+
+**Strong eventual consistency**: All clients that have received the same set of updates will converge to the same state, regardless of network delays or order of delivery.
+
+## Yjs Overview
+
+Yjs is a high-performance CRDT implementation optimized for shared editing of rich text, JSON, and other data structures.
+
+**GitHub**: https://github.com/yjs/yjs  
+**Docs**: https://docs.yjs.dev
+
+### Why Yjs?
+
+- **Battle-tested**: Used by Notion, Linear, and other production apps
+- **Efficient**: Binary encoding, compact updates
+- **Rich types**: Text, Map, Array, XML
+- **Language support**: JavaScript, Rust, Python, Swift
+- **Offline-first**: Designed for local-first architectures
+
+## Brainbox CRDT Package
+
+Location: `packages/crdt/`
+
+The `@brainbox/crdt` package wraps Yjs with a high-level API tailored for Brainbox:
+
+```typescript
+import { YDoc } from '@brainbox/crdt';
+
+// Create document with initial state
+const doc = new YDoc(initialState);
+
+// Update document
+const update = doc.update(schema, newAttributes);
+
+// Apply remote update
+doc.applyUpdate(remoteUpdate);
+
+// Get current state
+const currentState = doc.getObject();
+```
+
+### Core Functions
+
+Location: `packages/crdt/src/index.ts`
+
+#### State Encoding
+
+```typescript
+export const encodeState = (state: Uint8Array): string => {
+  return fromUint8Array(state);
+};
+
+export const decodeState = (state: string): Uint8Array => {
+  return toUint8Array(state);
+};
+```
+
+Converts binary Yjs states to/from base64 strings for storage and transmission.
+
+#### Update Merging
+
+```typescript
+export const mergeUpdates = (updates: Uint8Array[]): Uint8Array => {
+  return Y.mergeUpdates(updates);
+};
+```
+
+Combines multiple CRDT updates into a single update for efficiency.
+
+## YDoc Class
+
+The `YDoc` class wraps a Yjs document with type-safe operations:
+
+```typescript
+export class YDoc {
+  private readonly doc: Y.Doc;
+  private readonly undoManager: Y.UndoManager;
+  
+  constructor(state?: Uint8Array | string | Uint8Array[] | string[]) {
+    this.doc = new Y.Doc();
+    this.undoManager = new Y.UndoManager(this.doc, {
+      trackedOrigins: new Set([ORIGIN]),
+    });
+    
+    // Load initial state if provided
+    if (state) {
+      if (Array.isArray(state)) {
+        for (const update of state) {
+          Y.applyUpdate(
+            this.doc,
+            typeof update === 'string' ? toUint8Array(update) : update
+          );
+        }
+      } else {
+        Y.applyUpdate(
+          this.doc,
+          typeof state === 'string' ? toUint8Array(state) : state
+        );
+      }
+    }
+  }
+}
+```
+
+Location: `packages/crdt/src/index.ts:22`
+
+### Update Method
+
+Generates a CRDT update from attribute changes:
+
+```typescript
+public update(
+  schema: z.ZodSchema,
+  object: z.infer<typeof schema>
+): Uint8Array | null {
+  if (!schema.safeParse(object).success) {
+    throw new Error('Invalid object');
+  }
+  
+  const updates: Uint8Array[] = [];
+  const onUpdateCallback = (update: Uint8Array) => {
+    updates.push(update);
+  };
+  
+  this.doc.on('update', onUpdateCallback);
+  
+  const objectMap = this.doc.getMap('object');
+  this.doc.transact(() => {
+    this.applyObjectChanges(schema, object, objectMap);
+  }, ORIGIN);
+  
+  this.doc.off('update', onUpdateCallback);
+  
+  return updates.length > 0 ? updates[0] : null;
+}
+```
+
+Location: `packages/crdt/src/index.ts:49`
+
+### Undo/Redo Support
+
+```typescript
+public undo(): Uint8Array | null {
+  const updates: Uint8Array[] = [];
+  this.doc.on('update', (update) => updates.push(update));
+  this.undoManager.undo();
+  this.doc.off('update');
+  return updates.length > 0 ? updates[0] : null;
+}
+
+public redo(): Uint8Array | null {
+  const updates: Uint8Array[] = [];
+  this.doc.on('update', (update) => updates.push(update));
+  this.undoManager.redo();
+  this.doc.off('update');
+  return updates.length > 0 ? updates[0] : null;
+}
+```
+
+Location: `packages/crdt/src/index.ts:97`
+
+## CRDT Types
+
+Yjs provides several shared types, mapped to JavaScript structures:
+
+### Y.Text (Strings)
+
+For collaborative string editing with character-level CRDT:
+
+```typescript
+private applyTextChanges(value: string, yText: Y.Text) {
+  const currentText = yText.toString();
+  const newText = value || '';
+  
+  if (isEqual(currentText, newText)) return;
+  
+  // Character-level diff
+  const diffs = diffChars(currentText, newText);
+  let index = 0;
+  
+  for (const diff of diffs) {
+    if (diff.added) {
+      yText.insert(index, diff.value);
+      index += diff.value.length;
+    } else if (diff.removed) {
+      yText.delete(index, diff.value.length);
+    } else {
+      index += diff.value.length;
+    }
+  }
+}
+```
+
+Location: `packages/crdt/src/index.ts:415`
+
+Used for:
+- Rich text document content (via TipTap/ProseMirror)
+- Node names and simple text fields
+
+### Y.Map (Objects)
+
+For collaborative object editing:
+
+```typescript
+private applyObjectChanges(
+  schema: z.ZodObject,
+  attributes: any,
+  yMap: Y.Map<any>
+) {
+  for (const [key, value] of Object.entries(attributes)) {
+    if (value === null || value === undefined) {
+      if (yMap.has(key)) {
+        yMap.delete(key);
+      }
+      continue;
+    }
+    
+    // Handle nested structures
+    const schemaField = this.extractType(schema.shape[key], value);
+    if (schemaField instanceof z.ZodObject) {
+      let nestedMap = yMap.get(key);
+      if (!(nestedMap instanceof Y.Map)) {
+        nestedMap = new Y.Map();
+        yMap.set(key, nestedMap);
+      }
+      this.applyObjectChanges(schemaField, value, nestedMap);
+    } else {
+      const currentValue = yMap.get(key);
+      if (!isEqual(currentValue, value)) {
+        yMap.set(key, value);
+      }
+    }
+  }
+}
+```
+
+Location: `packages/crdt/src/index.ts:170`
+
+Used for:
+- Node attributes (page metadata, database config, etc.)
+- Structured data within documents
+
+### Y.Array (Lists)
+
+For collaborative list editing:
+
+```typescript
+private applyArrayChanges(
+  schemaField: z.ZodArray<any>,
+  value: Array<any>,
+  yArray: Y.Array<any>
+) {
+  const itemSchema = this.extractType(schemaField.element, value);
+  const length = value.length;
+  
+  for (let i = 0; i < length; i++) {
+    const item = value[i];
+    
+    if (itemSchema instanceof z.ZodObject) {
+      if (yArray.length <= i) {
+        const nestedMap = new Y.Map();
+        yArray.insert(i, [nestedMap]);
+      }
+      let nestedMap = yArray.get(i);
+      this.applyObjectChanges(itemSchema, item, nestedMap);
+    } else {
+      if (yArray.length <= i) {
+        yArray.insert(i, [item]);
+      } else {
+        const currentItem = yArray.get(i);
+        if (!isEqual(currentItem, item)) {
+          yArray.delete(i);
+          yArray.insert(i, [item]);
+        }
+      }
+    }
+  }
+  
+  // Trim excess items
+  if (yArray.length > length) {
+    yArray.delete(length, yArray.length - length);
+  }
+}
+```
+
+Location: `packages/crdt/src/index.ts:251`
+
+Used for:
+- Ordered lists within documents
+- Multi-select field values
+- Block sequences
+
+## Rich Text Collaboration
+
+Brainbox uses TipTap (ProseMirror) for rich text editing, integrated with Yjs:
+
+```typescript
+import { Editor } from '@tiptap/core';
+import Collaboration from '@tiptap/extension-collaboration';
+import * as Y from 'yjs';
+
+const ydoc = new Y.Doc();
+
+const editor = new Editor({
+  extensions: [
+    Collaboration.configure({
+      document: ydoc,
+      field: 'content',
+    }),
+    // Other extensions...
+  ],
+});
+
+// Listen for updates
+ydoc.on('update', (update: Uint8Array) => {
+  // Send update to server
+  syncEngine.sendUpdate(update);
+});
+
+// Apply remote updates
+syncEngine.onUpdate((update: Uint8Array) => {
+  Y.applyUpdate(ydoc, update);
+});
+```
+
+Location: Used in web and desktop apps
+
+### How It Works
+
+1. **User types**: TipTap converts keystrokes to ProseMirror transactions
+2. **Yjs generates update**: Collaboration extension creates CRDT update
+3. **Send to server**: Update sent via WebSocket sync engine
+4. **Broadcast to peers**: Server broadcasts to other editors
+5. **Apply update**: Peers apply update to their Yjs document
+6. **TipTap renders**: Collaboration extension updates editor state
+
+### Conflict Resolution Example
+
+**Scenario**: Two users edit the same document simultaneously
+
+```
+Initial state: "Hello world"
+
+User A (offline): Types " beautiful" after "Hello"
+  Local state: "Hello beautiful world"
+  
+User B (offline): Types "!" at end
+  Local state: "Hello world!"
+  
+Both reconnect and sync:
+  
+User A receives B's update:
+  Yjs merges: "Hello beautiful world!"
+  
+User B receives A's update:
+  Yjs merges: "Hello beautiful world!"
+  
+Result: Both converge to "Hello beautiful world!"
+```
+
+Yjs maintains **causal ordering** through vector clocks, ensuring consistent merge results.
+
+## Node Attributes CRDT
+
+Brainbox applies CRDTs to node metadata, not just documents:
+
+```typescript
+// packages/client/src/mutations/nodes/update.ts
+import { YDoc } from '@brainbox/crdt';
+import { nodeSchema } from '@brainbox/core';
+
+export async function updateNode(nodeId: string, attributes: object) {
+  const db = await getDatabase();
+  
+  // Load current node state
+  const node = await db
+    .selectFrom('nodes')
+    .selectAll()
+    .where('id', '=', nodeId)
+    .executeTakeFirstOrThrow();
+  
+  const currentState = await db
+    .selectFrom('node_states')
+    .select('state')
+    .where('id', '=', nodeId)
+    .executeTakeFirst();
+  
+  // Create YDoc with current state
+  const ydoc = new YDoc(currentState?.state);
+  
+  // Generate update
+  const update = ydoc.update(nodeSchema, {
+    ...JSON.parse(node.attributes),
+    ...attributes,
+  });
+  
+  if (update) {
+    // Store update for sync
+    await db
+      .insertInto('node_updates')
+      .values({
+        id: generateId(),
+        node_id: nodeId,
+        data: update,
+        created_at: new Date().toISOString(),
+      })
+      .execute();
+    
+    // Update local state
+    const newState = ydoc.getState();
+    await db
+      .updateTable('node_states')
+      .set({ state: newState })
+      .where('id', '=', nodeId)
+      .execute();
+  }
+}
+```
+
+### Benefits
+
+- **Offline edits merge**: Multiple clients can edit node attributes offline
+- **Last-write-wins avoided**: No arbitrary conflict resolution
+- **Atomic updates**: All attribute changes are part of CRDT history
+
+## Storage and Sync
+
+### Client-Side Storage
+
+#### Node States Table
+
+```sql
+CREATE TABLE node_states (
+  id TEXT PRIMARY KEY,
+  state BLOB NOT NULL,      -- Yjs state vector
+  revision TEXT NOT NULL
+);
+```
+
+Stores the current CRDT state for each node.
+
+#### Node Updates Table
+
+```sql
+CREATE TABLE node_updates (
+  id TEXT PRIMARY KEY,
+  node_id TEXT NOT NULL,
+  data BLOB NOT NULL,       -- Yjs update (delta)
+  created_at TEXT NOT NULL
+);
+```
+
+Queue of pending updates to send to server.
+
+### Server-Side Storage
+
+#### Node Updates Table (PostgreSQL)
+
+```sql
+CREATE TABLE node_updates (
+  id TEXT PRIMARY KEY,
+  node_id TEXT NOT NULL,
+  root_id TEXT NOT NULL,
+  workspace_id TEXT NOT NULL,
+  revision BIGSERIAL NOT NULL,
+  data BYTEA NOT NULL,
+  merged_updates JSONB,
+  created_at TIMESTAMPTZ NOT NULL,
+  created_by TEXT NOT NULL
+);
+
+CREATE INDEX idx_node_updates_revision ON node_updates(root_id, revision);
+```
+
+Stores all CRDT updates with monotonic revision numbers for sync.
+
+### Sync Protocol
+
+1. **Client generates update**: YDoc produces binary update
+2. **Store locally**: Insert into `node_updates` table
+3. **Send to server**: WebSocket message with base64-encoded update
+4. **Server persists**: Insert into PostgreSQL with revision number
+5. **Broadcast to peers**: Server sends to subscribed clients
+6. **Peers apply**: Clients apply update to their YDoc
+7. **Update cursor**: Track last synced revision
+
+## Performance Optimizations
+
+### Update Merging
+
+Multiple small updates can be merged into larger updates:
+
+```typescript
+import { mergeUpdates } from '@brainbox/crdt';
+
+const updates = await db
+  .selectFrom('node_updates')
+  .select('data')
+  .where('node_id', '=', nodeId)
+  .execute();
+
+const merged = mergeUpdates(updates.map((u) => u.data));
+
+// Store merged update, delete originals
+await db
+  .insertInto('node_updates')
+  .values({
+    id: generateId(),
+    node_id: nodeId,
+    data: merged,
+    created_at: new Date().toISOString(),
+  })
+  .execute();
+
+await db
+  .deleteFrom('node_updates')
+  .where('id', 'in', updates.map((u) => u.id))
+  .execute();
+```
+
+Reduces storage and bandwidth requirements.
+
+### State Snapshots
+
+Periodically store full CRDT state to avoid replaying long update history:
+
+```typescript
+// After N updates, create snapshot
+if (updateCount > 100) {
+  const fullState = Y.encodeStateAsUpdate(ydoc);
+  
+  await db
+    .updateTable('node_states')
+    .set({ state: fullState })
+    .where('id', '=', nodeId)
+    .execute();
+  
+  // Clear old updates
+  await db
+    .deleteFrom('node_updates')
+    .where('node_id', '=', nodeId)
+    .where('created_at', '<', cutoffDate)
+    .execute();
+}
+```
+
+### Binary Encoding
+
+Yjs uses compact binary encoding:
+
+- **Update size**: Typically 10-100 bytes per edit
+- **State size**: Proportional to document size, not edit history
+- **Compression**: Further compressed with gzip for transmission
+
+## Limitations and Trade-offs
+
+### CRDT Limitations
+
+- **Storage overhead**: CRDT metadata adds ~10-20% to document size
+- **Complexity**: More complex than last-write-wins
+- **Tombstones**: Deleted items leave metadata (can be garbage collected)
+
+### When Not to Use CRDTs
+
+- **Financial data**: Use server-authoritative transactions
+- **Inventory**: Requires strong consistency (use locks)
+- **Sequential operations**: Use queues with ordering guarantees
+
+### Brainbox Approach
+
+- **Rich text**: Always use CRDTs (primary use case)
+- **Node metadata**: Use CRDTs for offline support
+- **Transactional data**: Use server-side validation (e.g., workspace billing)
+
+## Debugging CRDT Issues
+
+### Inspect Document State
+
+```typescript
+import { YDoc } from '@brainbox/crdt';
+
+const ydoc = new YDoc(state);
+const object = ydoc.getObject();
+console.log('Current state:', JSON.stringify(object, null, 2));
+
+const encodedState = ydoc.getEncodedState();
+console.log('Binary state (base64):', encodedState);
+console.log('State size:', encodedState.length, 'bytes');
+```
+
+### Trace Updates
+
+```typescript
+ydoc.doc.on('update', (update: Uint8Array, origin: any) => {
+  console.log('Update generated:', {
+    size: update.length,
+    origin,
+    base64: fromUint8Array(update),
+  });
+});
+```
+
+### Validate Convergence
+
+Test that clients converge after applying same updates:
+
+```typescript
+const doc1 = new YDoc();
+const doc2 = new YDoc();
+
+// Apply updates in different order
+doc1.applyUpdate(updateA);
+doc1.applyUpdate(updateB);
+
+doc2.applyUpdate(updateB);
+doc2.applyUpdate(updateA);
+
+// Should be equal
+assert.deepEqual(doc1.getObject(), doc2.getObject());
+```
+
+## Further Reading
+
+- **Yjs Documentation**: https://docs.yjs.dev
+- **CRDT Papers**: https://crdt.tech
+- **Local-first Software**: https://www.inkandswitch.com/local-first/
+- **Brainbox Sync Engine**: [Sync Engine](/architecture/sync-engine)
+
+## Next Steps
+
+- [Sync Engine](/architecture/sync-engine) - WebSocket sync protocol
+- [Local-First Architecture](/architecture/local-first) - Client database design
+- [Monorepo Structure](/architecture/monorepo) - Code organization

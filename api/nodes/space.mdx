@@ -1,0 +1,103 @@
+---
+title: 'Space Node'
+description: 'Top-level workspace container with collaboration and visibility settings'
+---
+
+## Overview
+
+The Space node is the root-level container in Brainbox. It represents a collaborative workspace with its own set of members, permissions, and visibility settings.
+
+## Attributes Schema
+
+```typescript
+z.object({
+  type: z.literal('space'),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  avatar: z.string().nullable().optional(),
+  collaborators: z.record(z.string(), nodeRoleEnum),
+  visibility: z.enum(['public', 'private']).default('public'),
+})
+```
+
+<ParamField path="type" type="literal" required>
+  Must be `'space'`
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  The name of the space
+</ParamField>
+
+<ParamField path="description" type="string | null">
+  Optional description of the space
+</ParamField>
+
+<ParamField path="avatar" type="string | null">
+  Optional avatar URL or emoji for the space
+</ParamField>
+
+<ParamField path="collaborators" type="Record<string, NodeRole>" required>
+  Map of user IDs to their roles in this space. Roles can be `'admin'`, `'member'`, or `'viewer'`.
+</ParamField>
+
+<ParamField path="visibility" type="'public' | 'private'" default="public">
+  Whether the space is visible to all workspace members (`'public'`) or only to collaborators (`'private'`)
+</ParamField>
+
+## Permissions
+
+### canCreate
+
+**Rules:**
+- Must be at root level (`tree.length === 0`)
+- User must have at least `'member'` workspace role
+- Attributes must be of type `'space'`
+- Collaborators list must not be empty
+- Creating user must be listed as `'admin'` in collaborators
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/space.ts:21-44`
+
+### canUpdateAttributes
+
+**Rules:**
+- Cannot update if at root level
+- User must have `'admin'` role in the space
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/space.ts:45-60`
+
+### canUpdateDocument
+
+**Rules:**
+- Always returns `false` (spaces do not have documents)
+
+### canDelete
+
+**Rules:**
+- Cannot delete if at root level
+- User must have `'admin'` role in the space
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/space.ts:64-79`
+
+### canReact
+
+**Rules:**
+- Always returns `false` (spaces cannot be reacted to)
+
+## Document Schema
+
+Spaces do not support documents.
+
+## Text Extraction
+
+```typescript
+{
+  name: attributes.name,
+  attributes: null
+}
+```
+
+Only the space name is extracted for search/indexing.
+
+## Mentions
+
+Spaces do not support mentions. Always returns `[]`.

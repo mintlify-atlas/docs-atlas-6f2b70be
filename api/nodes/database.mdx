@@ -1,0 +1,183 @@
+---
+title: 'Database Node'
+description: 'Structured data container with custom fields and records'
+---
+
+## Overview
+
+The Database node represents a structured collection of records with custom field definitions. It functions similar to a spreadsheet or table, with configurable columns (fields) and rows (records).
+
+## Attributes Schema
+
+```typescript
+z.object({
+  type: z.literal('database'),
+  name: z.string(),
+  avatar: z.string().nullable().optional(),
+  parentId: z.string(),
+  fields: z.record(z.string(), fieldAttributesSchema),
+  nameField: z.object({
+    name: z.string().nullable().optional(),
+  }).nullable().optional(),
+  index: z.string().nullable().optional(),
+})
+```
+
+<ParamField path="type" type="literal" required>
+  Must be `'database'`
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  The name of the database
+</ParamField>
+
+<ParamField path="avatar" type="string | null">
+  Optional avatar URL or emoji for the database
+</ParamField>
+
+<ParamField path="parentId" type="string" required>
+  ID of the parent node (typically a space or folder)
+</ParamField>
+
+<ParamField path="fields" type="Record<string, FieldAttributes>" required>
+  Map of field IDs to field definitions. Each field defines a column in the database.
+  
+  <Expandable title="Field Types">
+    - `boolean`: Checkbox/boolean values
+    - `text`: Multi-line text
+    - `number`: Numeric values
+    - `email`: Email addresses
+    - `phone`: Phone numbers
+    - `url`: URLs
+    - `date`: Date values
+    - `select`: Single-select dropdown with options
+    - `multi_select`: Multi-select dropdown with options
+    - `file`: File attachments
+    - `collaborator`: User references
+    - `relation`: References to records in another database
+    - `rollup`: Aggregated values from related records
+    - `created_at`: Auto-populated creation timestamp
+    - `created_by`: Auto-populated creator
+    - `updated_at`: Auto-populated update timestamp
+    - `updated_by`: Auto-populated last editor
+  </Expandable>
+</ParamField>
+
+<ParamField path="nameField" type="object | null">
+  Configuration for the special "Name" field that identifies records
+  
+  ```typescript
+  {
+    name: z.string().nullable().optional()
+  }
+  ```
+</ParamField>
+
+<ParamField path="index" type="string | null">
+  Fractional index for ordering databases among siblings
+</ParamField>
+
+## Field Attributes Schema
+
+Each field in the `fields` map must conform to one of the following schemas:
+
+```typescript
+z.discriminatedUnion('type', [
+  // Boolean field
+  z.object({
+    id: z.string(),
+    type: z.literal('boolean'),
+    name: z.string(),
+    index: z.string(),
+  }),
+  
+  // Text field
+  z.object({
+    id: z.string(),
+    type: z.literal('text'),
+    name: z.string(),
+    index: z.string(),
+  }),
+  
+  // Number field
+  z.object({
+    id: z.string(),
+    type: z.literal('number'),
+    name: z.string(),
+    index: z.string(),
+  }),
+  
+  // Select field (with options)
+  z.object({
+    id: z.string(),
+    type: z.literal('select'),
+    name: z.string(),
+    index: z.string(),
+    options: z.record(z.string(), z.object({
+      id: z.string(),
+      name: z.string(),
+      color: z.string(),
+      index: z.string(),
+    })).optional(),
+  }),
+  
+  // ... and other field types
+])
+```
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/field.ts:186-204`
+
+## Permissions
+
+### canCreate
+
+**Rules:**
+- Tree must not be empty (cannot create at root)
+- User must have at least `'member'` role in the parent
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/database.ts:31-46`
+
+### canUpdateAttributes
+
+**Rules:**
+- Tree must not be empty
+- User must have at least `'member'` role
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/database.ts:47-62`
+
+### canUpdateDocument
+
+**Rules:**
+- Always returns `false` (databases do not have documents)
+
+### canDelete
+
+**Rules:**
+- Tree must not be empty
+- User must have at least `'member'` role
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/database.ts:66-81`
+
+### canReact
+
+**Rules:**
+- Always returns `false` (databases cannot be reacted to)
+
+## Document Schema
+
+Databases do not support documents.
+
+## Text Extraction
+
+```typescript
+{
+  name: attributes.name,
+  attributes: null
+}
+```
+
+Only the database name is extracted for search/indexing.
+
+## Mentions
+
+Databases do not support mentions. Always returns `[]`.

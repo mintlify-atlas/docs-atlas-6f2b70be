@@ -1,0 +1,130 @@
+---
+title: 'Message Node'
+description: 'Chat message with rich content, reactions, and threading'
+---
+
+## Overview
+
+The Message node represents a message posted in a channel. Messages support rich text content through blocks, can reference other messages (for threading), and support reactions from users.
+
+## Attributes Schema
+
+```typescript
+z.object({
+  type: z.literal('message'),
+  subtype: z.enum(['standard', 'question', 'answer']),
+  name: z.string().optional(),
+  parentId: z.string(),
+  referenceId: z.string().nullable().optional(),
+  content: z.record(z.string(), blockSchema).optional().nullable(),
+  selectedContextNodeIds: z.array(z.string()).optional().nullable(),
+})
+```
+
+<ParamField path="type" type="literal" required>
+  Must be `'message'`
+</ParamField>
+
+<ParamField path="subtype" type="'standard' | 'question' | 'answer'" required>
+  The message subtype:
+  - `'standard'`: Regular message
+  - `'question'`: Question message (for Q&A channels)
+  - `'answer'`: Answer to a question
+</ParamField>
+
+<ParamField path="name" type="string">
+  Optional name/title for the message
+</ParamField>
+
+<ParamField path="parentId" type="string" required>
+  ID of the parent channel or message (for threading)
+</ParamField>
+
+<ParamField path="referenceId" type="string | null">
+  ID of the message being referenced/replied to
+</ParamField>
+
+<ParamField path="content" type="Record<string, Block> | null">
+  Map of block IDs to block content. Blocks are rich content elements (text, images, embeds, etc.)
+</ParamField>
+
+<ParamField path="selectedContextNodeIds" type="string[] | null">
+  Array of node IDs selected as context for this message (used for AI features)
+</ParamField>
+
+## Permissions
+
+### canCreate
+
+**Rules:**
+- Tree must not be empty (cannot create at root)
+- User must have at least `'viewer'` role in the parent channel
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/message.ts:25-40`
+
+### canUpdateAttributes
+
+**Rules:**
+- Tree must not be empty
+- User must be the message creator (`createdBy === user.id`)
+- Note: Role in channel must also exist
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/message.ts:41-56`
+
+### canUpdateDocument
+
+**Rules:**
+- Always returns `false` (messages do not have separate documents, content is in attributes)
+
+### canDelete
+
+**Rules:**
+- Tree must not be empty
+- User must be the message creator OR have `'admin'` role in the channel
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/message.ts:60-77`
+
+### canReact
+
+**Rules:**
+- Tree must not be empty
+- User must have at least `'viewer'` role in the parent channel
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/message.ts:78-93`
+
+## Document Schema
+
+Messages do not have separate documents. Content is stored in the `content` attribute using blocks.
+
+## Block Schema
+
+The `content` field uses block-based rich content:
+
+```typescript
+z.record(z.string(), blockSchema)
+```
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/block.ts`
+
+## Text Extraction
+
+```typescript
+{
+  name: attributes.name,
+  attributes: extractBlockTexts(id, attributes.content)
+}
+```
+
+The message name and text content from all blocks are extracted for search/indexing.
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/message.ts:94-105`
+
+## Mentions
+
+Mentions are extracted from the block content:
+
+```typescript
+return extractBlocksMentions(id, attributes.content)
+```
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/message.ts:106-113`

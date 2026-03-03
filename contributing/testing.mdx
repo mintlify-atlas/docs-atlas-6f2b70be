@@ -1,0 +1,385 @@
+---
+title: Testing Guide
+description: How to write and run tests in Brainbox using Vitest
+---
+
+Brainbox uses [Vitest](https://vitest.dev/) for testing across all packages and applications.
+
+## Running Tests
+
+### Basic Commands
+
+```bash
+npm run test              # Run all tests once
+npm run test -- --watch   # Run tests in watch mode
+npm run coverage          # Run tests with coverage report
+```
+
+### Running Tests for Specific Packages
+
+You can run tests for individual packages:
+
+```bash
+cd packages/core && npm run test
+cd packages/client && npm run test
+cd apps/server && npm run test
+```
+
+<Tip>
+  Use watch mode during development to automatically re-run tests as you make changes.
+</Tip>
+
+## Writing Tests
+
+### Test File Location
+
+Place test files:
+
+- **Next to source files**: `user.ts` → `user.test.ts`
+- **In `__tests__` directories**: `__tests__/user.test.ts`
+
+Both approaches are acceptable. Choose based on the package's existing conventions.
+
+### Basic Test Structure
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { createNode } from './nodes';
+
+describe('createNode', () => {
+  it('should create a node with the given attributes', () => {
+    const node = createNode({
+      type: 'page',
+      name: 'My Page',
+    });
+
+    expect(node.type).toBe('page');
+    expect(node.name).toBe('My Page');
+  });
+
+  it('should generate a unique ID', () => {
+    const node1 = createNode({ type: 'page', name: 'Page 1' });
+    const node2 = createNode({ type: 'page', name: 'Page 2' });
+
+    expect(node1.id).not.toBe(node2.id);
+  });
+});
+```
+
+### Async Tests
+
+Handle asynchronous operations with `async/await`:
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { queryNodes } from './queries';
+
+describe('queryNodes', () => {
+  it('should fetch nodes from the database', async () => {
+    const nodes = await queryNodes({ type: 'page' });
+    
+    expect(nodes).toBeInstanceOf(Array);
+    expect(nodes.length).toBeGreaterThan(0);
+  });
+});
+```
+
+### Mocking
+
+Use Vitest's built-in mocking capabilities:
+
+```typescript
+import { describe, it, expect, vi } from 'vitest';
+import { syncEngine } from './sync-engine';
+import { apiClient } from './api-client';
+
+vi.mock('./api-client');
+
+describe('syncEngine', () => {
+  it('should call API when syncing', async () => {
+    const mockPost = vi.fn().mockResolvedValue({ success: true });
+    apiClient.post = mockPost;
+
+    await syncEngine.sync();
+
+    expect(mockPost).toHaveBeenCalledWith('/sync', expect.any(Object));
+  });
+});
+```
+
+### Testing React Components
+
+For React components, use Vitest with React Testing Library:
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { Counter } from './Counter';
+
+describe('Counter', () => {
+  it('should increment count when button is clicked', async () => {
+    const user = userEvent.setup();
+    render(<Counter />);
+
+    const button = screen.getByRole('button', { name: /increment/i });
+    await user.click(button);
+
+    expect(screen.getByText('Count: 1')).toBeInTheDocument();
+  });
+});
+```
+
+## Testing Best Practices
+
+### Descriptive Test Names
+
+Use clear, descriptive test names that explain what is being tested:
+
+**Bad:**
+
+```typescript
+it('works', () => {
+  // ...
+});
+```
+
+**Good:**
+
+```typescript
+it('should return an error when email is invalid', () => {
+  // ...
+});
+```
+
+### Test Behavior, Not Implementation
+
+Focus on testing the public API and behavior, not internal implementation details:
+
+**Bad:**
+
+```typescript
+it('should call validateEmail internally', () => {
+  const spy = vi.spyOn(userService, 'validateEmail');
+  userService.createUser({ email: 'test@example.com' });
+  expect(spy).toHaveBeenCalled();
+});
+```
+
+**Good:**
+
+```typescript
+it('should reject invalid email addresses', () => {
+  expect(() => {
+    userService.createUser({ email: 'invalid-email' });
+  }).toThrow('Invalid email');
+});
+```
+
+### Arrange, Act, Assert
+
+Structure tests using the AAA pattern:
+
+```typescript
+it('should calculate total price correctly', () => {
+  // Arrange
+  const cart = createCart();
+  cart.addItem({ name: 'Book', price: 10 });
+  cart.addItem({ name: 'Pen', price: 2 });
+
+  // Act
+  const total = cart.getTotal();
+
+  // Assert
+  expect(total).toBe(12);
+});
+```
+
+### Test Edge Cases
+
+Don't just test the happy path:
+
+```typescript
+describe('divide', () => {
+  it('should divide two numbers', () => {
+    expect(divide(10, 2)).toBe(5);
+  });
+
+  it('should handle division by zero', () => {
+    expect(() => divide(10, 0)).toThrow('Cannot divide by zero');
+  });
+
+  it('should handle negative numbers', () => {
+    expect(divide(-10, 2)).toBe(-5);
+  });
+
+  it('should handle decimal results', () => {
+    expect(divide(10, 3)).toBeCloseTo(3.333, 2);
+  });
+});
+```
+
+### Keep Tests Independent
+
+Each test should be independent and not rely on the state from other tests:
+
+```typescript
+import { describe, it, expect, beforeEach } from 'vitest';
+
+describe('UserService', () => {
+  let userService: UserService;
+
+  beforeEach(() => {
+    // Create fresh instance for each test
+    userService = new UserService();
+  });
+
+  it('should create a user', () => {
+    const user = userService.create({ name: 'Alice' });
+    expect(user.name).toBe('Alice');
+  });
+
+  it('should delete a user', () => {
+    const user = userService.create({ name: 'Bob' });
+    userService.delete(user.id);
+    expect(userService.find(user.id)).toBeUndefined();
+  });
+});
+```
+
+## Testing Database Code
+
+For code that interacts with the database, use an in-memory database or transaction rollback:
+
+```typescript
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { db } from './database';
+
+describe('User queries', () => {
+  beforeEach(async () => {
+    await db.schema
+      .createTable('users')
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('name', 'text', (col) => col.notNull())
+      .execute();
+  });
+
+  afterEach(async () => {
+    await db.schema.dropTable('users').execute();
+  });
+
+  it('should insert and retrieve a user', async () => {
+    await db.insertInto('users').values({
+      id: '1',
+      name: 'Alice',
+    }).execute();
+
+    const user = await db
+      .selectFrom('users')
+      .select(['id', 'name'])
+      .where('id', '=', '1')
+      .executeTakeFirst();
+
+    expect(user?.name).toBe('Alice');
+  });
+});
+```
+
+## Coverage Reports
+
+Generate coverage reports to identify untested code:
+
+```bash
+npm run coverage
+```
+
+This generates a coverage report in the `coverage/` directory.
+
+<Note>
+  Aim for high test coverage, but prioritize meaningful tests over coverage percentage.
+</Note>
+
+## Continuous Integration
+
+Tests run automatically in CI for every pull request. All tests must pass before merging.
+
+### CI Test Command
+
+```bash
+npm run test  # Runs in CI mode (no watch)
+```
+
+## Common Testing Patterns
+
+### Testing CRDT Operations
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import * as Y from 'yjs';
+
+describe('CRDT sync', () => {
+  it('should merge concurrent updates', () => {
+    const doc1 = new Y.Doc();
+    const doc2 = new Y.Doc();
+
+    const text1 = doc1.getText('content');
+    const text2 = doc2.getText('content');
+
+    text1.insert(0, 'Hello');
+    text2.insert(0, 'World');
+
+    // Apply updates
+    Y.applyUpdate(doc1, Y.encodeStateAsUpdate(doc2));
+    Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
+
+    expect(text1.toString()).toBe(text2.toString());
+  });
+});
+```
+
+### Testing WebSocket Sync
+
+```typescript
+import { describe, it, expect, vi } from 'vitest';
+import { SyncEngine } from './sync-engine';
+
+describe('SyncEngine', () => {
+  it('should reconnect on connection loss', async () => {
+    const mockWebSocket = {
+      send: vi.fn(),
+      close: vi.fn(),
+      addEventListener: vi.fn(),
+    };
+
+    const engine = new SyncEngine(mockWebSocket);
+    
+    // Simulate connection loss
+    const closeHandler = mockWebSocket.addEventListener.mock.calls
+      .find(([event]) => event === 'close')[1];
+    closeHandler();
+
+    // Verify reconnection attempt
+    expect(engine.isReconnecting).toBe(true);
+  });
+});
+```
+
+## Debugging Tests
+
+Use the `--reporter=verbose` flag for detailed output:
+
+```bash
+npm run test -- --reporter=verbose
+```
+
+Run a single test file:
+
+```bash
+npm run test -- user.test.ts
+```
+
+Run tests matching a pattern:
+
+```bash
+npm run test -- --grep="should create user"
+```

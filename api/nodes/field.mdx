@@ -1,0 +1,328 @@
+---
+title: 'Field Attributes'
+description: 'Field type definitions for database columns'
+---
+
+## Overview
+
+Fields define the structure of database columns in Brainbox. Each field has a type that determines what kind of data it can store and how it's displayed.
+
+Fields are not standalone nodes - they are embedded within Database node attributes.
+
+## Field Attributes Schema
+
+```typescript
+const fieldAttributesSchema = z.discriminatedUnion('type', [
+  booleanFieldAttributesSchema,
+  collaboratorFieldAttributesSchema,
+  createdAtFieldAttributesSchema,
+  createdByFieldAttributesSchema,
+  dateFieldAttributesSchema,
+  emailFieldAttributesSchema,
+  fileFieldAttributesSchema,
+  multiSelectFieldAttributesSchema,
+  numberFieldAttributesSchema,
+  phoneFieldAttributesSchema,
+  relationFieldAttributesSchema,
+  rollupFieldAttributesSchema,
+  selectFieldAttributesSchema,
+  textFieldAttributesSchema,
+  urlFieldAttributesSchema,
+  updatedAtFieldAttributesSchema,
+  updatedByFieldAttributesSchema,
+])
+```
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/field.ts:186-204`
+
+## Common Field Properties
+
+All field types share these common properties:
+
+<ParamField path="id" type="string" required>
+  Unique identifier for the field
+</ParamField>
+
+<ParamField path="type" type="string" required>
+  The field type (discriminator)
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Display name of the field/column
+</ParamField>
+
+<ParamField path="index" type="string" required>
+  Fractional index for ordering fields in the database view
+</ParamField>
+
+## Field Types
+
+### Boolean Field
+
+```typescript
+z.object({
+  id: z.string(),
+  type: z.literal('boolean'),
+  name: z.string(),
+  index: z.string(),
+})
+```
+
+Stores true/false checkbox values.
+
+### Text Field
+
+```typescript
+z.object({
+  id: z.string(),
+  type: z.literal('text'),
+  name: z.string(),
+  index: z.string(),
+})
+```
+
+Stores multi-line text content.
+
+### Number Field
+
+```typescript
+z.object({
+  id: z.string(),
+  type: z.literal('number'),
+  name: z.string(),
+  index: z.string(),
+})
+```
+
+Stores numeric values.
+
+### Email Field
+
+```typescript
+z.object({
+  id: z.string(),
+  type: z.literal('email'),
+  name: z.string(),
+  index: z.string(),
+})
+```
+
+Stores email addresses.
+
+### Phone Field
+
+```typescript
+z.object({
+  id: z.string(),
+  type: z.literal('phone'),
+  name: z.string(),
+  index: z.string(),
+})
+```
+
+Stores phone numbers.
+
+### URL Field
+
+```typescript
+z.object({
+  id: z.string(),
+  type: z.literal('url'),
+  name: z.string(),
+  index: z.string(),
+})
+```
+
+Stores URLs/links.
+
+### Date Field
+
+```typescript
+z.object({
+  id: z.string(),
+  type: z.literal('date'),
+  name: z.string(),
+  index: z.string(),
+})
+```
+
+Stores date values.
+
+### Select Field
+
+```typescript
+z.object({
+  id: z.string(),
+  type: z.literal('select'),
+  name: z.string(),
+  index: z.string(),
+  options: z.record(z.string(), selectOptionAttributesSchema).optional(),
+})
+```
+
+<ParamField path="options" type="Record<string, SelectOption>">
+  Map of option IDs to option definitions:
+  
+  ```typescript
+  {
+    id: z.string(),
+    name: z.string(),
+    color: z.string(),
+    index: z.string(),
+  }
+  ```
+</ParamField>
+
+Single-select dropdown with custom options.
+
+### Multi-Select Field
+
+```typescript
+z.object({
+  id: z.string(),
+  type: z.literal('multi_select'),
+  name: z.string(),
+  index: z.string(),
+  options: z.record(z.string(), selectOptionAttributesSchema).optional(),
+})
+```
+
+Multi-select dropdown with custom options. Uses the same option schema as Select field.
+
+### File Field
+
+```typescript
+z.object({
+  id: z.string(),
+  type: z.literal('file'),
+  name: z.string(),
+  index: z.string(),
+})
+```
+
+Stores file attachments.
+
+### Collaborator Field
+
+```typescript
+z.object({
+  id: z.string(),
+  type: z.literal('collaborator'),
+  name: z.string(),
+  index: z.string(),
+})
+```
+
+Stores references to workspace users.
+
+### Relation Field
+
+```typescript
+z.object({
+  id: z.string(),
+  type: z.literal('relation'),
+  name: z.string(),
+  index: z.string(),
+  databaseId: z.string().optional().nullable(),
+})
+```
+
+<ParamField path="databaseId" type="string | null">
+  ID of the target database to link records from
+</ParamField>
+
+Creates links to records in another database.
+
+### Rollup Field
+
+```typescript
+z.object({
+  id: z.string(),
+  type: z.literal('rollup'),
+  name: z.string(),
+  index: z.string(),
+})
+```
+
+Aggregates values from related records (via Relation fields).
+
+### Created At Field
+
+```typescript
+z.object({
+  id: z.string(),
+  type: z.literal('created_at'),
+  name: z.string(),
+  index: z.string(),
+})
+```
+
+Auto-populated timestamp when the record was created.
+
+### Created By Field
+
+```typescript
+z.object({
+  id: z.string(),
+  type: z.literal('created_by'),
+  name: z.string(),
+  index: z.string(),
+})
+```
+
+Auto-populated user who created the record.
+
+### Updated At Field
+
+```typescript
+z.object({
+  id: z.string(),
+  type: z.literal('updated_at'),
+  name: z.string(),
+  index: z.string(),
+})
+```
+
+Auto-populated timestamp when the record was last updated.
+
+### Updated By Field
+
+```typescript
+z.object({
+  id: z.string(),
+  type: z.literal('updated_by'),
+  name: z.string(),
+  index: z.string(),
+})
+```
+
+Auto-populated user who last updated the record.
+
+## Select Option Schema
+
+Used by Select and Multi-Select fields:
+
+```typescript
+z.object({
+  id: z.string(),
+  name: z.string(),
+  color: z.string(),
+  index: z.string(),
+})
+```
+
+<ResponseField name="id" type="string">
+  Unique identifier for the option
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Display name of the option
+</ResponseField>
+
+<ResponseField name="color" type="string">
+  Color code for the option badge
+</ResponseField>
+
+<ResponseField name="index" type="string">
+  Fractional index for ordering options
+</ResponseField>

@@ -1,0 +1,172 @@
+---
+title: Development Setup
+description: Prerequisites and initial setup for developing Brainbox
+---
+
+This guide will help you set up your local development environment for Brainbox.
+
+## Prerequisites
+
+<Steps>
+  <Step title="Install Node.js and npm">
+    Brainbox requires Node.js 18 or higher and npm 10 or higher.
+
+    ```bash
+    node --version  # Should be v18.0.0 or higher
+    npm --version   # Should be 10.0.0 or higher
+    ```
+
+    <Note>
+      The project uses npm workspaces and is configured to use npm 10.9.0 as specified in `package.json`.
+    </Note>
+  </Step>
+
+  <Step title="Install Docker and Docker Compose">
+    Brainbox requires Docker for running infrastructure services (PostgreSQL, Redis, MinIO).
+
+    Verify your installation:
+
+    ```bash
+    docker --version
+    docker compose version
+    ```
+
+    <Note>
+      Make sure Docker Desktop is running before proceeding with setup.
+    </Note>
+  </Step>
+
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/brainbox/brainbox.git
+    cd brainbox
+    ```
+  </Step>
+</Steps>
+
+## Installation
+
+<Steps>
+  <Step title="Install dependencies">
+    Install all dependencies for the monorepo and workspaces:
+
+    ```bash
+    npm install
+    ```
+
+    This will install dependencies for all apps and packages in the monorepo using npm workspaces.
+  </Step>
+
+  <Step title="Start infrastructure services">
+    Start PostgreSQL, Redis (Valkey), and MinIO using Docker Compose:
+
+    ```bash
+    docker compose -f hosting/docker/docker-compose.yaml up -d
+    ```
+
+    This starts the following services:
+    - **PostgreSQL** (port 5432) - Database with pgvector extension
+    - **Valkey/Redis** (port 6379) - Message queue and caching
+    - **MinIO** (ports 9000, 9001) - S3-compatible file storage
+
+    <Note>
+      Use `docker compose -f hosting/docker/docker-compose.yaml logs` to view service logs if you encounter issues.
+    </Note>
+  </Step>
+
+  <Step title="Configure server environment">
+    Copy the example environment file and configure it:
+
+    ```bash
+    cd apps/server
+    cp .env.example .env
+    ```
+
+    The default values in `.env.example` are configured to work with the Docker Compose setup.
+
+    <CodeGroup>
+    ```bash Default Configuration
+    # PostgreSQL
+    POSTGRES_URL=postgres://colanode_user:postgrespass123@localhost:5432/colanode_db
+
+    # Redis/Valkey
+    REDIS_URL=redis://:your_valkey_password@localhost:6379/0
+
+    # MinIO (S3-compatible storage)
+    STORAGE_S3_ENDPOINT=http://localhost:9000
+    STORAGE_S3_ACCESS_KEY=minioadmin
+    STORAGE_S3_SECRET_KEY=your_minio_password
+    STORAGE_S3_BUCKET=brainbox
+    STORAGE_S3_REGION=us-east-1
+    STORAGE_S3_FORCE_PATH_STYLE=true
+
+    # Server Configuration
+    NODE_ENV=production
+    SERVER_MODE=standalone
+    ACCOUNT_VERIFICATION_TYPE=automatic
+    ```
+
+    ```bash Custom Configuration
+    # Update these values for custom setup
+    POSTGRES_URL=postgresql://user:pass@localhost:5432/brainbox
+    REDIS_URL=redis://localhost:6379
+    S3_ENDPOINT=http://localhost:9000
+    S3_ACCESS_KEY=your-access-key
+    S3_SECRET_KEY=your-secret-key
+    JWT_SECRET=your-secret-key
+    ```
+    </CodeGroup>
+
+    <Note>
+      For development, you can use the default credentials. For production deployments, always use strong, unique passwords.
+    </Note>
+  </Step>
+</Steps>
+
+## Verify Installation
+
+Check that all infrastructure services are running:
+
+```bash
+docker ps
+```
+
+You should see containers for:
+- `brainbox_postgres`
+- `brainbox_valkey`
+- `brainbox_minio`
+
+Access MinIO console at [http://localhost:9001](http://localhost:9001) (credentials: `minioadmin` / `your_minio_password`)
+
+## Troubleshooting
+
+### Database Connection Issues
+
+If you encounter database connection issues, verify PostgreSQL is running:
+
+```bash
+docker exec -it brainbox_postgres psql -U colanode_user -d colanode_db
+```
+
+### Port Conflicts
+
+If ports 3000, 4000, 5432, 6379, 9000, or 9001 are already in use, you'll need to either:
+- Stop the conflicting services
+- Modify the port mappings in `hosting/docker/docker-compose.yaml`
+
+### Build Failures
+
+If you encounter build issues, try cleaning and reinstalling:
+
+```bash
+npm run clean
+rm -rf node_modules package-lock.json
+npm install
+```
+
+## Next Steps
+
+Now that your environment is set up, you can:
+- [Run the development servers](/development/running-locally)
+- [Explore the project structure](/development/project-structure)
+- Start developing features

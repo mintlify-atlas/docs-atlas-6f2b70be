@@ -1,0 +1,1889 @@
+---
+title: Mutation Functions
+description: Complete reference for all client mutation functions in Brainbox
+---
+
+## Overview
+
+Mutations modify data in the local database and sync changes to the server. All mutations return a `MutationResult` with success/error status.
+
+## Mutation Pattern
+
+All mutations follow this structure:
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'mutation.name',
+  accountId: string,
+  workspaceId: string,
+  // ... mutation-specific parameters
+});
+
+if (result.success) {
+  console.log('Success:', result.output);
+} else {
+  console.error('Error:', result.error.code, result.error.message);
+}
+```
+
+## Accounts
+
+### account.update
+
+Update account information.
+
+<ParamField path="type" type="'account.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'account.update',
+  accountId: 'account-123'
+});
+```
+
+### account.metadata.update
+
+Update account metadata.
+
+<ParamField path="type" type="'account.metadata.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'account.metadata.update',
+  accountId: 'account-123'
+});
+```
+
+### account.metadata.delete
+
+Delete account metadata.
+
+<ParamField path="type" type="'account.metadata.delete'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'account.metadata.delete',
+  accountId: 'account-123'
+});
+```
+
+### account.logout
+
+Log out from an account.
+
+<ParamField path="type" type="'account.logout'" required>
+  Mutation type identifier
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'account.logout'
+});
+```
+
+## Authentication
+
+### email.login
+
+Log in with email and password.
+
+<ParamField path="type" type="'email.login'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="server" type="string" required>
+  Server URL
+</ParamField>
+
+<ParamField path="email" type="string" required>
+  User email
+</ParamField>
+
+<ParamField path="password" type="string" required>
+  User password
+</ParamField>
+
+<ResponseField name="output" type="LoginOutput">
+  Contains authentication token and user information
+</ResponseField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'email.login',
+  server: 'https://brainbox.example.com',
+  email: 'user@example.com',
+  password: 'secure-password'
+});
+
+if (result.success) {
+  const { token, userId, accountId } = result.output;
+  console.log('Logged in as:', userId);
+}
+```
+
+### email.register
+
+Register a new account.
+
+<ParamField path="type" type="'email.register'" required>
+  Mutation type identifier
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'email.register'
+});
+```
+
+### email.verify
+
+Verify email address.
+
+<ParamField path="type" type="'email.verify'" required>
+  Mutation type identifier
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'email.verify'
+});
+```
+
+### email.password.reset.init
+
+Initiate password reset.
+
+<ParamField path="type" type="'email.password.reset.init'" required>
+  Mutation type identifier
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'email.password.reset.init'
+});
+```
+
+### email.password.reset.complete
+
+Complete password reset.
+
+<ParamField path="type" type="'email.password.reset.complete'" required>
+  Mutation type identifier
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'email.password.reset.complete'
+});
+```
+
+### google.login
+
+Log in with Google OAuth.
+
+<ParamField path="type" type="'google.login'" required>
+  Mutation type identifier
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'google.login'
+});
+```
+
+## Workspaces
+
+### workspace.create
+
+Create a new workspace.
+
+<ParamField path="type" type="'workspace.create'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'workspace.create',
+  accountId: 'account-123'
+});
+
+if (result.success) {
+  console.log('Created workspace:', result.output.id);
+}
+```
+
+### workspace.update
+
+Update workspace settings.
+
+<ParamField path="type" type="'workspace.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'workspace.update',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### workspace.delete
+
+Delete a workspace.
+
+<ParamField path="type" type="'workspace.delete'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'workspace.delete',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### workspace.metadata.update
+
+Update workspace metadata.
+
+<ParamField path="type" type="'workspace.metadata.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'workspace.metadata.update',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### workspace.metadata.delete
+
+Delete workspace metadata.
+
+<ParamField path="type" type="'workspace.metadata.delete'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'workspace.metadata.delete',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Spaces
+
+### space.create
+
+Create a new space.
+
+<ParamField path="type" type="'space.create'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Space name
+</ParamField>
+
+<ParamField path="description" type="string" required>
+  Space description
+</ParamField>
+
+<ResponseField name="output.id" type="string">
+  Created space ID
+</ResponseField>
+
+<ResponseField name="output.initialPageId" type="string">
+  ID of the automatically created initial page
+</ResponseField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'space.create',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456',
+  name: 'Product Design',
+  description: 'Design documentation and resources'
+});
+
+if (result.success) {
+  console.log('Space created:', result.output.id);
+  console.log('Initial page:', result.output.initialPageId);
+}
+```
+
+### space.delete
+
+Delete a space.
+
+<ParamField path="type" type="'space.delete'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'space.delete',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### space.name.update
+
+Update space name.
+
+<ParamField path="type" type="'space.name.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'space.name.update',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### space.description.update
+
+Update space description.
+
+<ParamField path="type" type="'space.description.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'space.description.update',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### space.avatar.update
+
+Update space avatar.
+
+<ParamField path="type" type="'space.avatar.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'space.avatar.update',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### space.child.reorder
+
+Reorder children within a space.
+
+<ParamField path="type" type="'space.child.reorder'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'space.child.reorder',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Pages
+
+### page.create
+
+Create a new page.
+
+<ParamField path="type" type="'page.create'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ParamField path="parentId" type="string" required>
+  Parent node ID (space, folder, or page)
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Page name
+</ParamField>
+
+<ParamField path="avatar" type="string | null" optional>
+  Page avatar emoji or icon
+</ParamField>
+
+<ParamField path="after" type="string | null" optional>
+  ID of the node to insert after (for ordering)
+</ParamField>
+
+<ResponseField name="output.id" type="string">
+  Created page ID
+</ResponseField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'page.create',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456',
+  parentId: 'space-789',
+  name: 'Meeting Notes',
+  avatar: '📝',
+  after: 'page-previous'
+});
+
+if (result.success) {
+  console.log('Created page:', result.output.id);
+}
+```
+
+### page.update
+
+Update page properties.
+
+<ParamField path="type" type="'page.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'page.update',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### page.delete
+
+Delete a page.
+
+<ParamField path="type" type="'page.delete'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'page.delete',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Folders
+
+### folder.create
+
+Create a new folder.
+
+<ParamField path="type" type="'folder.create'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ParamField path="parentId" type="string" required>
+  Parent node ID
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Folder name
+</ParamField>
+
+<ParamField path="avatar" type="string | null" optional>
+  Folder avatar
+</ParamField>
+
+<ParamField path="after" type="string | null" optional>
+  ID of the node to insert after
+</ParamField>
+
+<ResponseField name="output.id" type="string">
+  Created folder ID
+</ResponseField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'folder.create',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456',
+  parentId: 'space-789',
+  name: 'Documentation',
+  avatar: '📁'
+});
+```
+
+### folder.update
+
+Update folder properties.
+
+<ParamField path="type" type="'folder.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'folder.update',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### folder.delete
+
+Delete a folder.
+
+<ParamField path="type" type="'folder.delete'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'folder.delete',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Databases
+
+### database.create
+
+Create a new database.
+
+<ParamField path="type" type="'database.create'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ParamField path="parentId" type="string" required>
+  Parent node ID
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Database name
+</ParamField>
+
+<ParamField path="avatar" type="string | null" optional>
+  Database avatar
+</ParamField>
+
+<ParamField path="after" type="string | null" optional>
+  ID of the node to insert after
+</ParamField>
+
+<ResponseField name="output.id" type="string">
+  Created database ID
+</ResponseField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'database.create',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456',
+  parentId: 'space-789',
+  name: 'Tasks',
+  avatar: '✅'
+});
+```
+
+### database.update
+
+Update database properties.
+
+<ParamField path="type" type="'database.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'database.update',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### database.delete
+
+Delete a database.
+
+<ParamField path="type" type="'database.delete'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'database.delete',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### database.name.field.update
+
+Update the primary name field for a database.
+
+<ParamField path="type" type="'database.name.field.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'database.name.field.update',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Database Fields
+
+### field.create
+
+Create a new database field.
+
+<ParamField path="type" type="'field.create'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'field.create',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### field.name.update
+
+Update field name.
+
+<ParamField path="type" type="'field.name.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'field.name.update',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### field.delete
+
+Delete a database field.
+
+<ParamField path="type" type="'field.delete'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'field.delete',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Database Views
+
+### view.create
+
+Create a database view.
+
+<ParamField path="type" type="'view.create'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'view.create',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### view.update
+
+Update view configuration.
+
+<ParamField path="type" type="'view.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'view.update',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### view.name.update
+
+Update view name.
+
+<ParamField path="type" type="'view.name.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'view.name.update',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### view.delete
+
+Delete a database view.
+
+<ParamField path="type" type="'view.delete'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'view.delete',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Select Options
+
+### select.option.create
+
+Create a select field option.
+
+<ParamField path="type" type="'select.option.create'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'select.option.create',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### select.option.update
+
+Update a select option.
+
+<ParamField path="type" type="'select.option.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'select.option.update',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### select.option.delete
+
+Delete a select option.
+
+<ParamField path="type" type="'select.option.delete'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'select.option.delete',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Records
+
+### record.create
+
+Create a new database record.
+
+<ParamField path="type" type="'record.create'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'record.create',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### record.name.update
+
+Update record name.
+
+<ParamField path="type" type="'record.name.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'record.name.update',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### record.avatar.update
+
+Update record avatar.
+
+<ParamField path="type" type="'record.avatar.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'record.avatar.update',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### record.field.value.set
+
+Set a field value for a record.
+
+<ParamField path="type" type="'record.field.value.set'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ParamField path="recordId" type="string" required>
+  Record ID
+</ParamField>
+
+<ParamField path="fieldId" type="string" required>
+  Field ID
+</ParamField>
+
+<ParamField path="value" type="FieldValue" required>
+  New field value (type depends on field type)
+</ParamField>
+
+<ResponseField name="output.success" type="boolean">
+  Whether the operation succeeded
+</ResponseField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'record.field.value.set',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456',
+  recordId: 'record-789',
+  fieldId: 'field-status',
+  value: { type: 'select', optionId: 'option-done' }
+});
+```
+
+### record.field.value.delete
+
+Delete a field value.
+
+<ParamField path="type" type="'record.field.value.delete'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'record.field.value.delete',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### record.delete
+
+Delete a record.
+
+<ParamField path="type" type="'record.delete'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'record.delete',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Documents
+
+### document.update
+
+Update document content (CRDT).
+
+<ParamField path="type" type="'document.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ParamField path="documentId" type="string" required>
+  Document ID (same as page/node ID)
+</ParamField>
+
+<ParamField path="update" type="Uint8Array" required>
+  Yjs update binary data
+</ParamField>
+
+<ResponseField name="output.success" type="boolean">
+  Whether the update was applied
+</ResponseField>
+
+```typescript
+import * as Y from 'yjs';
+
+const ydoc = new Y.Doc();
+const update = Y.encodeStateAsUpdate(ydoc);
+
+const result = await mediator.executeMutation({
+  type: 'document.update',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456',
+  documentId: 'page-789',
+  update
+});
+```
+
+## Files
+
+### file.create
+
+Create a new file node.
+
+<ParamField path="type" type="'file.create'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ParamField path="parentId" type="string" required>
+  Parent node ID
+</ParamField>
+
+<ParamField path="tempFileId" type="string" required>
+  Temporary file ID from upload
+</ParamField>
+
+<ResponseField name="output.id" type="string | null">
+  Created file ID, or null if creation failed
+</ResponseField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'file.create',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456',
+  parentId: 'folder-789',
+  tempFileId: 'temp-upload-123'
+});
+```
+
+### file.update
+
+Update file properties.
+
+<ParamField path="type" type="'file.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'file.update',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### file.delete
+
+Delete a file.
+
+<ParamField path="type" type="'file.delete'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'file.delete',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### file.download
+
+Download a file.
+
+<ParamField path="type" type="'file.download'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'file.download',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### temp.file.create
+
+Create a temporary file for upload.
+
+<ParamField path="type" type="'temp.file.create'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'temp.file.create',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Channels
+
+### channel.create
+
+Create a new channel.
+
+<ParamField path="type" type="'channel.create'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Channel name
+</ParamField>
+
+<ParamField path="avatar" type="string | null" optional>
+  Channel avatar
+</ParamField>
+
+<ResponseField name="output.id" type="string">
+  Created channel ID
+</ResponseField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'channel.create',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456',
+  name: 'general',
+  avatar: '#'
+});
+```
+
+### channel.update
+
+Update channel properties.
+
+<ParamField path="type" type="'channel.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'channel.update',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### channel.delete
+
+Delete a channel.
+
+<ParamField path="type" type="'channel.delete'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'channel.delete',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Chats
+
+### chat.create
+
+Create a direct chat.
+
+<ParamField path="type" type="'chat.create'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'chat.create',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Messages
+
+### message.create
+
+Create a new message.
+
+<ParamField path="type" type="'message.create'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'message.create',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### message.delete
+
+Delete a message.
+
+<ParamField path="type" type="'message.delete'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'message.delete',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Node Interactions
+
+### node.interaction.opened
+
+Track that a node was opened.
+
+<ParamField path="type" type="'node.interaction.opened'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'node.interaction.opened',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### node.interaction.seen
+
+Track that a node was seen.
+
+<ParamField path="type" type="'node.interaction.seen'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'node.interaction.seen',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Node Reactions
+
+### node.reaction.create
+
+Add a reaction to a node.
+
+<ParamField path="type" type="'node.reaction.create'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  Node ID to react to
+</ParamField>
+
+<ParamField path="reaction" type="string" required>
+  Emoji reaction (e.g., '👍', '❤️')
+</ParamField>
+
+<ResponseField name="output.success" type="boolean">
+  Whether the reaction was added
+</ResponseField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'node.reaction.create',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456',
+  nodeId: 'page-789',
+  reaction: '👍'
+});
+```
+
+### node.reaction.delete
+
+Remove a reaction from a node.
+
+<ParamField path="type" type="'node.reaction.delete'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'node.reaction.delete',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Node Collaborators
+
+### node.collaborator.create
+
+Add a collaborator to a node.
+
+<ParamField path="type" type="'node.collaborator.create'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'node.collaborator.create',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### node.collaborator.update
+
+Update collaborator role.
+
+<ParamField path="type" type="'node.collaborator.update'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'node.collaborator.update',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+### node.collaborator.delete
+
+Remove a collaborator.
+
+<ParamField path="type" type="'node.collaborator.delete'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'node.collaborator.delete',
+  accountId: 'account-123',
+  workspaceId: 'workspace-456'
+});
+```
+
+## Users
+
+### users.create
+
+Create new users.
+
+<ParamField path="type" type="'users.create'" required>
+  Mutation type identifier
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'users.create'
+});
+```
+
+### user.role.update
+
+Update user role.
+
+<ParamField path="type" type="'user.role.update'" required>
+  Mutation type identifier
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'user.role.update'
+});
+```
+
+### user.storage.update
+
+Update user storage settings.
+
+<ParamField path="type" type="'user.storage.update'" required>
+  Mutation type identifier
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'user.storage.update'
+});
+```
+
+## Servers
+
+### server.create
+
+Connect to a new server.
+
+<ParamField path="type" type="'server.create'" required>
+  Mutation type identifier
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'server.create'
+});
+```
+
+### server.delete
+
+Disconnect from a server.
+
+<ParamField path="type" type="'server.delete'" required>
+  Mutation type identifier
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'server.delete'
+});
+```
+
+## Avatars
+
+### avatar.upload
+
+Upload a new avatar image.
+
+<ParamField path="type" type="'avatar.upload'" required>
+  Mutation type identifier
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'avatar.upload',
+  accountId: 'account-123'
+});
+```
+
+## App Metadata
+
+### app.metadata.update
+
+Update application metadata.
+
+<ParamField path="type" type="'app.metadata.update'" required>
+  Mutation type identifier
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'app.metadata.update'
+});
+```
+
+### app.metadata.delete
+
+Delete application metadata.
+
+<ParamField path="type" type="'app.metadata.delete'" required>
+  Mutation type identifier
+</ParamField>
+
+```typescript
+const result = await mediator.executeMutation({
+  type: 'app.metadata.delete'
+});
+```

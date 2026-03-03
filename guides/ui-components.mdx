@@ -1,0 +1,653 @@
+---
+title: "UI components"
+description: "Build React components for the Brainbox interface"
+icon: "paintbrush"
+---
+
+Brainbox uses React 19, TailwindCSS v4, and Radix UI for building accessible, performant user interfaces. This guide covers component patterns and best practices.
+
+## Overview
+
+UI components are organized in `packages/ui/src/components/`:
+
+- **ui/** - Base components (Button, Dialog, Input, etc.)
+- **Feature folders** - Domain components (accounts/, databases/, pages/, etc.)
+
+Components use TanStack Query for data fetching and mutations.
+
+## Architecture
+
+```
+Component → useMutation/useQuery → Client handlers → WebSocket/HTTP → Server
+    ↓
+Radix UI + TailwindCSS v4
+```
+
+## Step-by-step guide
+
+<Steps>
+<Step title="Create the component file">
+
+Place feature components in their domain folder:
+
+```tsx packages/ui/src/components/tasks/task-create.tsx
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Plus } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import { z } from 'zod/v4';
+
+import { Button } from '@brainbox/ui/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@brainbox/ui/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@brainbox/ui/components/ui/form';
+import { Input } from '@brainbox/ui/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@brainbox/ui/components/ui/select';
+import { Spinner } from '@brainbox/ui/components/ui/spinner';
+import { useMutation } from '@brainbox/ui/hooks/use-mutation';
+
+const formSchema = z.object({
+  name: z.string().min(1, 'Task name is required').max(200),
+  status: z.enum(['todo', 'in_progress', 'done']).default('todo'),
+  assigneeId: z.string().optional(),
+});
+
+interface TaskCreateProps {
+  parentId: string;
+  workspaceId: string;
+  accountId: string;
+  onSuccess?: (taskId: string) => void;
+}
+
+export const TaskCreate = ({
+  parentId,
+  workspaceId,
+  accountId,
+  onSuccess,
+}: TaskCreateProps) => {
+  const [open, setOpen] = useState(false);
+  const { mutate, isPending } = useMutation();
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: '',
+      status: 'todo',
+    },
+  });
+
+  const handleSubmit = async (values: z.infer<typeof formSchema>) => {
+    mutate({
+      input: {
+        type: 'task.create',
+        accountId,
+        workspaceId,
+        name: values.name,
+        parentId,
+        status: values.status,
+        assigneeId: values.assigneeId,
+      },
+      onSuccess(output) {
+        toast.success('Task created');
+        setOpen(false);
+        form.reset();
+        onSuccess?.(output.id);
+      },
+      onError(error) {
+        toast.error(error.message);
+      },
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm">
+          <Plus className="size-4" />
+          New task
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create task</DialogTitle>
+          <DialogDescription>
+            Add a new task to track work.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Task name</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Enter task name"
+                      autoComplete="off"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="todo">To do</SelectItem>
+                      <SelectItem value="in_progress">In progress</SelectItem>
+                      <SelectItem value="done">Done</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isPending}>
+                {isPending && <Spinner className="size-4" />}
+                Create task
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+};
+```
+
+</Step>
+
+<Step title="Use mutations for data changes">
+
+The `useMutation` hook handles client-side mutations:
+
+```tsx
+import { useMutation } from '@brainbox/ui/hooks/use-mutation';
+
+const { mutate, isPending } = useMutation();
+
+mutate({
+  input: {
+    type: 'task.create',
+    accountId,
+    workspaceId,
+    name: 'New task',
+  },
+  onSuccess(output) {
+    toast.success('Task created');
+  },
+  onError(error) {
+    toast.error(error.message);
+  },
+});
+```
+
+</Step>
+
+<Step title="Use queries for data fetching">
+
+The `useQuery` hook fetches and subscribes to data:
+
+```tsx
+import { useQuery } from '@brainbox/ui/hooks/use-query';
+
+const { data, isLoading, error } = useQuery({
+  input: {
+    type: 'tasks.list',
+    accountId,
+    workspaceId,
+    parentId,
+  },
+});
+
+if (isLoading) {
+  return <Spinner />;
+}
+
+if (error) {
+  return <div>Error: {error.message}</div>;
+}
+
+return (
+  <div>
+    {data.tasks.map((task) => (
+      <TaskItem key={task.id} task={task} />
+    ))}
+  </div>
+);
+```
+
+</Step>
+
+<Step title="Export and use the component">
+
+Export from the feature folder index:
+
+```typescript packages/ui/src/components/tasks/index.ts
+export { TaskCreate } from './task-create';
+export { TaskList } from './task-list';
+export { TaskItem } from './task-item';
+```
+
+Use in your app:
+
+```tsx
+import { TaskCreate } from '@brainbox/ui/components/tasks';
+
+<TaskCreate
+  parentId={folderId}
+  workspaceId={workspace.id}
+  accountId={account.id}
+  onSuccess={(taskId) => console.log('Created:', taskId)}
+/>
+```
+
+</Step>
+</Steps>
+
+## Component patterns
+
+### Form handling
+
+Use React Hook Form with Zod validation:
+
+```tsx
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod/v4';
+
+const formSchema = z.object({
+  name: z.string().min(1).max(200),
+  email: z.string().email(),
+});
+
+const form = useForm<z.infer<typeof formSchema>>({
+  resolver: zodResolver(formSchema),
+  defaultValues: {
+    name: '',
+    email: '',
+  },
+});
+
+const handleSubmit = (values: z.infer<typeof formSchema>) => {
+  mutate({
+    input: { type: 'user.update', ...values },
+    onSuccess: () => toast.success('Saved'),
+  });
+};
+
+return (
+  <Form {...form}>
+    <form onSubmit={form.handleSubmit(handleSubmit)}>
+      {/* form fields */}
+    </form>
+  </Form>
+);
+```
+
+### Base UI components
+
+Brainbox provides reusable base components built on Radix UI:
+
+<CodeGroup>
+
+```tsx Button
+import { Button } from '@brainbox/ui/components/ui/button';
+
+<Button variant="default" size="default">
+  Click me
+</Button>
+
+<Button variant="destructive" size="sm">
+  Delete
+</Button>
+
+<Button variant="outline" size="icon">
+  <Plus className="size-4" />
+</Button>
+```
+
+```tsx Dialog
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@brainbox/ui/components/ui/dialog';
+
+<Dialog open={open} onOpenChange={setOpen}>
+  <DialogTrigger asChild>
+    <Button>Open</Button>
+  </DialogTrigger>
+  <DialogContent size="md">
+    <DialogHeader>
+      <DialogTitle>Dialog title</DialogTitle>
+      <DialogDescription>
+        Dialog description text.
+      </DialogDescription>
+    </DialogHeader>
+    {/* Content */}
+    <DialogFooter>
+      <Button variant="outline">Cancel</Button>
+      <Button>Confirm</Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+```
+
+```tsx Input
+import { Input } from '@brainbox/ui/components/ui/input';
+import { Label } from '@brainbox/ui/components/ui/label';
+
+<div>
+  <Label htmlFor="email">Email</Label>
+  <Input
+    id="email"
+    type="email"
+    placeholder="hi@example.com"
+    autoComplete="email"
+  />
+</div>
+
+<Input
+  type="password"
+  showPasswordToggle
+  autoComplete="current-password"
+/>
+```
+
+```tsx Select
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@brainbox/ui/components/ui/select';
+
+<Select onValueChange={setValue} defaultValue={value}>
+  <SelectTrigger>
+    <SelectValue placeholder="Select option" />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="option1">Option 1</SelectItem>
+    <SelectItem value="option2">Option 2</SelectItem>
+  </SelectContent>
+</Select>
+```
+
+</CodeGroup>
+
+### Loading states
+
+Use the Spinner component for loading states:
+
+```tsx
+import { Spinner } from '@brainbox/ui/components/ui/spinner';
+
+if (isLoading) {
+  return (
+    <div className="flex items-center justify-center p-8">
+      <Spinner className="size-6" />
+    </div>
+  );
+}
+
+// In buttons
+<Button disabled={isPending}>
+  {isPending && <Spinner className="size-4" />}
+  Save
+</Button>
+```
+
+### Error handling
+
+Display errors with toast notifications:
+
+```tsx
+import { toast } from 'sonner';
+
+mutate({
+  input: { type: 'task.create', ... },
+  onSuccess: () => {
+    toast.success('Task created successfully');
+  },
+  onError: (error) => {
+    toast.error(error.message);
+  },
+});
+
+// Custom error messages
+if (error.code === 'FORBIDDEN') {
+  toast.error('You do not have permission to perform this action.');
+} else {
+  toast.error('Something went wrong. Please try again.');
+}
+```
+
+### Optimistic updates
+
+Update UI immediately before server confirmation:
+
+```tsx
+const handleToggle = () => {
+  // Update local state immediately
+  setCompleted(!completed);
+
+  mutate({
+    input: {
+      type: 'task.update',
+      id: task.id,
+      completed: !completed,
+    },
+    onError: (error) => {
+      // Revert on error
+      setCompleted(completed);
+      toast.error(error.message);
+    },
+  });
+};
+```
+
+## Styling with TailwindCSS v4
+
+Brainbox uses semantic color tokens:
+
+```tsx
+<div className="bg-bg-base text-fg-default">
+  <h1 className="text-fg-default font-semibold">Title</h1>
+  <p className="text-fg-muted text-sm">Description</p>
+  <Button className="bg-accent-default hover:bg-accent-hover">
+    Action
+  </Button>
+</div>
+```
+
+### Color tokens
+
+- **Backgrounds**: `bg-base`, `bg-elevated`, `bg-subtle`, `bg-muted`
+- **Foregrounds**: `fg-default`, `fg-muted`, `fg-subtle`
+- **Borders**: `border-default`, `border-focus`
+- **Accent**: `accent-default`, `accent-hover`, `accent-active`
+- **Status**: `error`, `success`, `warning`
+
+### Spacing and sizing
+
+```tsx
+<div className="space-y-4">
+  <div className="p-6 rounded-lg border border-border-default">
+    <h2 className="text-lg font-semibold mb-2">Section</h2>
+    <p className="text-sm text-fg-muted">Content</p>
+  </div>
+</div>
+```
+
+## Accessibility
+
+Follow WAI-ARIA patterns and keyboard navigation:
+
+```tsx
+// Proper focus management
+<Dialog>
+  <DialogContent>
+    <Input autoFocus />  {/* Focus first input */}
+  </DialogContent>
+</Dialog>
+
+// ARIA labels for icons
+<Button variant="ghost" size="icon" aria-label="Delete task">
+  <Trash className="size-4" />
+</Button>
+
+// Semantic HTML
+<nav>
+  <ul>
+    <li><a href="/tasks">Tasks</a></li>
+  </ul>
+</nav>
+```
+
+<Warning>
+Never disable zoom. Use `font-size >= 16px` for mobile inputs to prevent auto-zoom.
+</Warning>
+
+## Performance
+
+### Avoid unnecessary re-renders
+
+```tsx
+// Use React.memo for expensive components
+const TaskItem = React.memo(({ task }: { task: Task }) => {
+  return <div>{task.name}</div>;
+});
+
+// Use useMemo for expensive calculations
+const sortedTasks = useMemo(
+  () => tasks.sort((a, b) => a.order - b.order),
+  [tasks]
+);
+
+// Use useCallback for event handlers passed to children
+const handleClick = useCallback(
+  (id: string) => {
+    navigate(`/tasks/${id}`);
+  },
+  [navigate]
+);
+```
+
+### Virtualize long lists
+
+Use `virtua` for rendering large lists:
+
+```tsx
+import { VList } from 'virtua';
+
+<VList style={{ height: '600px' }}>
+  {tasks.map((task) => (
+    <TaskItem key={task.id} task={task} />
+  ))}
+</VList>
+```
+
+## Testing components
+
+<CodeGroup>
+
+```tsx Unit test
+import { render, screen, fireEvent } from '@testing-library/react';
+import { TaskCreate } from './task-create';
+
+test('creates task', async () => {
+  const onSuccess = vi.fn();
+  
+  render(
+    <TaskCreate
+      parentId="parent-1"
+      workspaceId="ws-1"
+      accountId="acc-1"
+      onSuccess={onSuccess}
+    />
+  );
+
+  fireEvent.click(screen.getByText('New task'));
+  fireEvent.change(screen.getByLabelText('Task name'), {
+    target: { value: 'Test task' },
+  });
+  fireEvent.click(screen.getByText('Create task'));
+
+  await waitFor(() => {
+    expect(onSuccess).toHaveBeenCalled();
+  });
+});
+```
+
+```tsx Integration test
+import { renderWithProviders } from '@brainbox/ui/test/utils';
+
+test('task workflow', async () => {
+  const { user } = renderWithProviders(<TaskList />);
+
+  await user.click(screen.getByText('New task'));
+  await user.type(screen.getByLabelText('Task name'), 'Test');
+  await user.click(screen.getByText('Create task'));
+
+  expect(await screen.findByText('Test')).toBeInTheDocument();
+});
+```
+
+</CodeGroup>
+
+## File locations
+
+- Base components: `packages/ui/src/components/ui/[component].tsx`
+- Feature components: `packages/ui/src/components/[feature]/[component].tsx`
+- Hooks: `packages/ui/src/hooks/`
+- Utilities: `packages/ui/src/lib/`

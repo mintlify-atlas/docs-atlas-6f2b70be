@@ -1,0 +1,103 @@
+---
+title: 'Folder Node'
+description: 'Organizational container for pages, databases, and other folders'
+---
+
+## Overview
+
+The Folder node provides hierarchical organization within a space. Folders can contain pages, databases, files, and other folders. They support different layout modes for displaying their contents.
+
+## Attributes Schema
+
+```typescript
+z.object({
+  type: z.literal('folder'),
+  name: z.string(),
+  avatar: z.string().nullable().optional(),
+  parentId: z.string(),
+  layout: z.enum(['grid', 'list', 'gallery']).optional(),
+  index: z.string().nullable().optional(),
+})
+```
+
+<ParamField path="type" type="literal" required>
+  Must be `'folder'`
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  The name of the folder
+</ParamField>
+
+<ParamField path="avatar" type="string | null">
+  Optional avatar URL or emoji for the folder
+</ParamField>
+
+<ParamField path="parentId" type="string" required>
+  ID of the parent node (typically a space or another folder)
+</ParamField>
+
+<ParamField path="layout" type="'grid' | 'list' | 'gallery'">
+  Display layout for the folder's contents
+  - `'grid'`: Grid view
+  - `'list'`: List view
+  - `'gallery'`: Gallery view for visual content
+</ParamField>
+
+<ParamField path="index" type="string | null">
+  Fractional index for ordering folders among siblings
+</ParamField>
+
+## Permissions
+
+### canCreate
+
+**Rules:**
+- Tree must not be empty (cannot create at root)
+- User must have at least `'member'` role in the parent space/folder
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/folder.ts:25-40`
+
+### canUpdateAttributes
+
+**Rules:**
+- Tree must not be empty
+- User must have at least `'member'` role
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/folder.ts:41-56`
+
+### canUpdateDocument
+
+**Rules:**
+- Always returns `false` (folders do not have documents)
+
+### canDelete
+
+**Rules:**
+- Tree must not be empty
+- User must have `'admin'` role
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/folder.ts:60-75`
+
+### canReact
+
+**Rules:**
+- Always returns `false` (folders cannot be reacted to)
+
+## Document Schema
+
+Folders do not support documents.
+
+## Text Extraction
+
+```typescript
+{
+  name: attributes.name,
+  attributes: null
+}
+```
+
+Only the folder name is extracted for search/indexing.
+
+## Mentions
+
+Folders do not support mentions. Always returns `[]`.

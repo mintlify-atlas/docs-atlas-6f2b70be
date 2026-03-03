@@ -1,0 +1,161 @@
+---
+title: 'Record Node'
+description: 'Individual row in a database with field values and optional document'
+---
+
+## Overview
+
+The Record node represents a single row in a database. Each record contains field values corresponding to the database's field definitions, and can optionally have a rich text document attached.
+
+## Attributes Schema
+
+```typescript
+z.object({
+  type: z.literal('record'),
+  parentId: z.string(),
+  databaseId: z.string(),
+  name: z.string(),
+  avatar: z.string().nullable().optional(),
+  fields: z.record(z.string(), fieldValueSchema),
+})
+```
+
+<ParamField path="type" type="literal" required>
+  Must be `'record'`
+</ParamField>
+
+<ParamField path="parentId" type="string" required>
+  ID of the parent database node
+</ParamField>
+
+<ParamField path="databaseId" type="string" required>
+  ID of the database this record belongs to (same as parentId)
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  The name/title of the record (displayed in the Name column)
+</ParamField>
+
+<ParamField path="avatar" type="string | null">
+  Optional avatar URL or emoji for the record
+</ParamField>
+
+<ParamField path="fields" type="Record<string, FieldValue>" required>
+  Map of field IDs to their values in this record. Field IDs must match the database's field definitions.
+  
+  <Expandable title="Field Value Types">
+    Each value must conform to one of these schemas:
+    
+    ```typescript
+    // Boolean value
+    { type: 'boolean', value: boolean }
+    
+    // String value (for email, phone, url, etc.)
+    { type: 'string', value: string }
+    
+    // String array (for multi-select, collaborators, etc.)
+    { type: 'string_array', value: string[] }
+    
+    // Number value
+    { type: 'number', value: number }
+    
+    // Rich text value
+    { type: 'text', value: Text }
+    ```
+  </Expandable>
+</ParamField>
+
+## Field Value Schema
+
+```typescript
+z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('boolean'),
+    value: z.boolean(),
+  }),
+  z.object({
+    type: z.literal('string'),
+    value: z.string(),
+  }),
+  z.object({
+    type: z.literal('string_array'),
+    value: z.array(z.string()),
+  }),
+  z.object({
+    type: z.literal('number'),
+    value: z.number(),
+  }),
+  z.object({
+    type: z.literal('text'),
+    value: ZodText(),
+  }),
+])
+```
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/field-value.ts:40-46`
+
+## Permissions
+
+### canCreate
+
+**Rules:**
+- Tree must not be empty (cannot create at root)
+- User must have at least `'member'` role in the parent database
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/record.ts:24-39`
+
+### canUpdateAttributes
+
+**Rules:**
+- Tree must not be empty
+- User must have at least `'member'` role
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/record.ts:40-55`
+
+### canUpdateDocument
+
+**Rules:**
+- Tree must not be empty
+- User must have at least `'member'` role
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/record.ts:56-71`
+
+### canDelete
+
+**Rules:**
+- Tree must not be empty
+- User must have at least `'member'` role
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/record.ts:72-87`
+
+### canReact
+
+**Rules:**
+- Always returns `false` (records cannot be reacted to)
+
+## Document Schema
+
+Records use the `richTextContentSchema` for their optional document content, allowing rich text notes to be attached to each record.
+
+```typescript
+documentSchema: richTextContentSchema
+```
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/documents/rich-text.ts`
+
+## Text Extraction
+
+```typescript
+{
+  name: attributes.name,
+  attributes: texts.join('\n')  // All string field values concatenated
+}
+```
+
+The record name and all string-type field values are extracted for search/indexing.
+
+**Source:** `/home/daytona/workspace/source/packages/core/src/registry/nodes/record.ts:91-107`
+
+## Mentions
+
+Records do not extract mentions from attributes. Always returns `[]`.

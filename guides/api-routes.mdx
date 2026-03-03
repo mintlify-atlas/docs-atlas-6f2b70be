@@ -1,0 +1,604 @@
+---
+title: "API routes"
+description: "Create API endpoints for the Brainbox server"
+icon: "route"
+---
+
+Brainbox uses Fastify with type-safe Zod schemas for API routes. This guide shows how to add new endpoints to the server.
+
+## Overview
+
+API routes are organized in `apps/server/src/api/client/routes/` and grouped by feature:
+
+- **accounts/** - Authentication and account management
+- **workspaces/** - Workspace operations
+- **avatars/** - File upload/download
+- **sockets/** - WebSocket connections
+
+Each route group is registered with a prefix in the main router.
+
+## Architecture
+
+API structure:
+
+```
+Client → HTTP/WebSocket → Fastify → Plugins → Routes → Database
+                                  ↓
+                            Auth middleware
+                            Rate limiting
+                            Error handling
+```
+
+## Step-by-step guide
+
+<Steps>
+<Step title="Define request/response schemas">
+
+Create Zod schemas in `packages/core/src/api/` for type-safe validation.
+
+```typescript packages/core/src/api/tasks/task-create.ts
+import { z } from 'zod/v4';
+
+export const taskCreateInputSchema = z.object({
+  name: z.string().min(1).max(200),
+  parentId: z.string(),
+  status: z.enum(['todo', 'in_progress', 'done']).default('todo'),
+  assigneeId: z.string().optional(),
+});
+
+export const taskCreateOutputSchema = z.object({
+  id: z.string(),
+});
+
+export type TaskCreateInput = z.infer<typeof taskCreateInputSchema>;
+export type TaskCreateOutput = z.infer<typeof taskCreateOutputSchema>;
+```
+
+Export from `packages/core/src/api/index.ts`:
+
+```typescript
+export * from './tasks/task-create';
+```
+
+</Step>
+
+<Step title="Create the route handler">
+
+Implement the route in `apps/server/src/api/client/routes/`.
+
+```typescript apps/server/src/api/client/routes/tasks/task-create.ts
+import { FastifyPluginCallbackZod } from 'fastify-type-provider-zod';
+import {
+  taskCreateInputSchema,
+  taskCreateOutputSchema,
+  ApiErrorCode,
+  apiErrorOutputSchema,
+  generateId,
+  IdType,
+} from '@brainbox/core';
+import { database } from '@brainbox/server/data/database';
+import { eventBus } from '@brainbox/server/lib/event-bus';
+
+export const taskCreateRoute: FastifyPluginCallbackZod = (
+  instance,
+  _,
+  done
+) => {
+  instance.route({
+    method: 'POST',
+    url: '/',
+    schema: {
+      body: taskCreateInputSchema,
+      response: {
+        200: taskCreateOutputSchema,
+        400: apiErrorOutputSchema,
+        403: apiErrorOutputSchema,
+      },
+    },
+    handler: async (request, reply) => {
+      const input = request.body;
+
+      // Validate parent exists
+      const parent = await database
+        .selectFrom('nodes')
+        .where('id', '=', input.parentId)
+        .where('workspace_id', '=', request.user.workspace_id)
+        .selectAll()
+        .executeTakeFirst();
+
+      if (!parent) {
+        return reply.code(400).send({
+          code: ApiErrorCode.NodeNotFound,
+          message: 'Parent node not found.',
+        });
+      }
+
+      // Check permissions
+      if (request.user.role === 'viewer' || request.user.role === 'guest') {
+        return reply.code(403).send({
+          code: ApiErrorCode.Forbidden,
+          message: 'You do not have permission to create tasks.',
+        });
+      }
+
+      const id = generateId(IdType.Task);
+      
+      await database
+        .insertInto('nodes')
+        .values({
+          id,
+          type: 'task',
+          parent_id: input.parentId,
+          root_id: parent.root_id,
+          workspace_id: request.user.workspace_id,
+          attributes: JSON.stringify({
+            type: 'task',
+            name: input.name,
+            parentId: input.parentId,
+            status: input.status,
+            assigneeId: input.assigneeId,
+          }),
+          created_by: request.user.id,
+          created_at: new Date(),
+        })
+        .execute();
+
+      eventBus.publish({
+        type: 'node.created',
+        nodeId: id,
+        rootId: parent.root_id,
+        workspaceId: request.user.workspace_id,
+      });
+
+      return { id };
+    },
+  });
+
+  done();
+};
+```
+
+</Step>
+
+<Step title="Register the route">
+
+Create an index file to group related routes:
+
+```typescript apps/server/src/api/client/routes/tasks/index.ts
+import { FastifyPluginCallback } from 'fastify';
+import { workspaceAuthenticator } from '@brainbox/server/api/client/plugins/workspace-auth';
+
+import { taskCreateRoute } from './task-create';
+import { taskUpdateRoute } from './task-update';
+import { taskDeleteRoute } from './task-delete';
+
+export const taskRoutes: FastifyPluginCallback = (instance, _, done) => {
+  instance.register(workspaceAuthenticator);
+
+  instance.register(taskCreateRoute);
+  instance.register(taskUpdateRoute);
+  instance.register(taskDeleteRoute);
+
+  done();
+};
+```
+
+Add to main router in `apps/server/src/api/client/routes/index.ts`:
+
+```typescript
+import { taskRoutes } from '@brainbox/server/api/client/routes/tasks';
+
+export const clientRoutes: FastifyPluginCallback = (instance, _, done) => {
+  instance.register(taskRoutes, { prefix: '/tasks' });
+  // ... other routes
+  done();
+};
+```
+
+</Step>
+
+<Step title="Add authentication (if needed)">
+
+Use plugins for authentication and authorization.
+
+```typescript
+import { workspaceAuthenticator } from '@brainbox/server/api/client/plugins/workspace-auth';
+import { accountAuthenticator } from '@brainbox/server/api/client/plugins/account-auth';
+
+export const taskRoutes: FastifyPluginCallback = (instance, _, done) => {
+  // Workspace auth - requires valid workspace access
+  instance.register(workspaceAuthenticator);
+  
+  instance.register(taskCreateRoute);
+  
+  done();
+};
+
+// Or for account-only routes
+export const accountRoutes: FastifyPluginCallback = (instance, _, done) => {
+  instance.register(accountAuthenticator);
+  
+  instance.register(accountUpdateRoute);
+  
+  done();
+};
+```
+
+</Step>
+</Steps>
+
+## Route patterns
+
+### Basic CRUD operations
+
+<CodeGroup>
+
+```typescript Create
+instance.route({
+  method: 'POST',
+  url: '/',
+  schema: {
+    body: createInputSchema,
+    response: { 200: createOutputSchema },
+  },
+  handler: async (request, reply) => {
+    const id = generateId(IdType.Task);
+    await database.insertInto('tasks').values({ id, ...request.body }).execute();
+    return { id };
+  },
+});
+```
+
+```typescript Read
+instance.route({
+  method: 'GET',
+  url: '/:id',
+  schema: {
+    params: z.object({ id: z.string() }),
+    response: { 200: taskOutputSchema },
+  },
+  handler: async (request, reply) => {
+    const task = await database
+      .selectFrom('tasks')
+      .where('id', '=', request.params.id)
+      .selectAll()
+      .executeTakeFirst();
+
+    if (!task) {
+      return reply.code(404).send({
+        code: ApiErrorCode.NotFound,
+        message: 'Task not found.',
+      });
+    }
+
+    return task;
+  },
+});
+```
+
+```typescript Update
+instance.route({
+  method: 'PATCH',
+  url: '/:id',
+  schema: {
+    params: z.object({ id: z.string() }),
+    body: updateInputSchema,
+    response: { 200: z.object({ success: z.boolean() }) },
+  },
+  handler: async (request, reply) => {
+    await database
+      .updateTable('tasks')
+      .set(request.body)
+      .where('id', '=', request.params.id)
+      .execute();
+
+    eventBus.publish({
+      type: 'task.updated',
+      taskId: request.params.id,
+    });
+
+    return { success: true };
+  },
+});
+```
+
+```typescript Delete
+instance.route({
+  method: 'DELETE',
+  url: '/:id',
+  schema: {
+    params: z.object({ id: z.string() }),
+    response: { 200: z.object({ success: z.boolean() }) },
+  },
+  handler: async (request, reply) => {
+    await database
+      .deleteFrom('tasks')
+      .where('id', '=', request.params.id)
+      .execute();
+
+    eventBus.publish({
+      type: 'task.deleted',
+      taskId: request.params.id,
+    });
+
+    return { success: true };
+  },
+});
+```
+
+</CodeGroup>
+
+### Error handling
+
+Return appropriate HTTP status codes with error details:
+
+```typescript
+if (!user) {
+  return reply.code(404).send({
+    code: ApiErrorCode.UserNotFound,
+    message: 'User not found.',
+  });
+}
+
+if (user.role === 'viewer') {
+  return reply.code(403).send({
+    code: ApiErrorCode.Forbidden,
+    message: 'You do not have permission to perform this action.',
+  });
+}
+
+if (await isRateLimited(user.id)) {
+  return reply.code(429).send({
+    code: ApiErrorCode.TooManyRequests,
+    message: 'Too many requests. Please try again later.',
+  });
+}
+```
+
+### Authentication patterns
+
+<CodeGroup>
+
+```typescript Account authentication
+import { accountAuthenticator } from '@brainbox/server/api/client/plugins/account-auth';
+
+// Request will have request.account populated
+export const accountRoutes: FastifyPluginCallback = (instance, _, done) => {
+  instance.register(accountAuthenticator);
+  
+  instance.route({
+    method: 'GET',
+    url: '/me',
+    handler: async (request, reply) => {
+      // request.account is available
+      return {
+        id: request.account.id,
+        email: request.account.email,
+      };
+    },
+  });
+
+  done();
+};
+```
+
+```typescript Workspace authentication
+import { workspaceAuthenticator } from '@brainbox/server/api/client/plugins/workspace-auth';
+
+// Request will have request.user populated (workspace user)
+export const workspaceRoutes: FastifyPluginCallback = (instance, _, done) => {
+  instance.register(workspaceAuthenticator);
+  
+  instance.route({
+    method: 'POST',
+    url: '/tasks',
+    handler: async (request, reply) => {
+      // request.user is available with workspace context
+      const task = await createTask(
+        request.user.workspace_id,
+        request.user.id
+      );
+      return task;
+    },
+  });
+
+  done();
+};
+```
+
+```typescript Public routes
+// No authentication needed
+export const publicRoutes: FastifyPluginCallback = (instance, _, done) => {
+  instance.route({
+    method: 'GET',
+    url: '/health',
+    handler: async (request, reply) => {
+      return { status: 'ok' };
+    },
+  });
+
+  done();
+};
+```
+
+</CodeGroup>
+
+### Rate limiting
+
+Apply rate limiting to sensitive endpoints:
+
+```typescript
+import { authIpRateLimiter } from '@brainbox/server/api/client/plugins/auth-ip-rate-limit';
+
+export const authRoutes: FastifyPluginCallback = (instance, _, done) => {
+  instance.register(authIpRateLimiter);
+  
+  instance.register(emailLoginRoute);
+  instance.register(emailRegisterRoute);
+  
+  done();
+};
+```
+
+Or check manually:
+
+```typescript
+import { isAuthEmailRateLimited } from '@brainbox/server/lib/rate-limits';
+
+const isRateLimited = await isAuthEmailRateLimited(email);
+if (isRateLimited) {
+  return reply.code(429).send({
+    code: ApiErrorCode.TooManyRequests,
+    message: 'Too many authentication attempts. Please try again later.',
+  });
+}
+```
+
+## Plugins
+
+Available Fastify plugins in `apps/server/src/api/client/plugins/`:
+
+- **account-auth** - Validates JWT and populates `request.account`
+- **workspace-auth** - Validates workspace access and populates `request.user`
+- **auth-ip-rate-limit** - Rate limits by IP address
+- **cors** - CORS configuration
+- **error-handler** - Global error handling
+
+## Request context
+
+<CodeGroup>
+
+```typescript Account context
+// Available with accountAuthenticator
+interface FastifyRequest {
+  account: {
+    id: string;
+    email: string;
+    status: AccountStatus;
+    // ... other fields
+  };
+  client: {
+    ip: string;
+    userAgent: string;
+  };
+}
+```
+
+```typescript Workspace context
+// Available with workspaceAuthenticator
+interface FastifyRequest {
+  account: SelectAccount;
+  user: {
+    id: string;
+    account_id: string;
+    workspace_id: string;
+    role: WorkspaceRole;
+    status: UserStatus;
+    // ... other fields
+  };
+}
+```
+
+</CodeGroup>
+
+## Database queries
+
+Use Kysely for type-safe database queries:
+
+```typescript
+import { database } from '@brainbox/server/data/database';
+
+// Select
+const tasks = await database
+  .selectFrom('tasks')
+  .where('workspace_id', '=', workspaceId)
+  .where('deleted_at', 'is', null)
+  .selectAll()
+  .execute();
+
+// Insert
+await database
+  .insertInto('tasks')
+  .values({
+    id: generateId(IdType.Task),
+    name: 'New task',
+    created_at: new Date(),
+  })
+  .execute();
+
+// Update
+await database
+  .updateTable('tasks')
+  .set({ name: 'Updated name', updated_at: new Date() })
+  .where('id', '=', taskId)
+  .execute();
+
+// Delete (soft delete)
+await database
+  .updateTable('tasks')
+  .set({ deleted_at: new Date(), deleted_by: userId })
+  .where('id', '=', taskId)
+  .execute();
+```
+
+## Testing API routes
+
+<CodeGroup>
+
+```typescript Unit test
+import { build } from '@brainbox/server/app';
+
+test('creates task', async () => {
+  const app = await build();
+  
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/tasks',
+    headers: {
+      authorization: `Bearer ${token}`,
+    },
+    payload: {
+      name: 'Test task',
+      parentId: 'parent-1',
+    },
+  });
+
+  expect(response.statusCode).toBe(200);
+  expect(response.json().id).toBeDefined();
+});
+```
+
+```typescript Integration test
+import fetch from 'node-fetch';
+
+test('task workflow', async () => {
+  // Create
+  const createRes = await fetch('http://localhost:3000/api/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Test task' }),
+  });
+  const { id } = await createRes.json();
+
+  // Update
+  await fetch(`http://localhost:3000/api/tasks/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'done' }),
+  });
+
+  // Verify
+  const getRes = await fetch(`http://localhost:3000/api/tasks/${id}`);
+  const task = await getRes.json();
+  expect(task.status).toBe('done');
+});
+```
+
+</CodeGroup>
+
+## File locations
+
+- Schemas: `packages/core/src/api/[feature]/[action].ts`
+- Routes: `apps/server/src/api/client/routes/[feature]/[action].ts`
+- Plugins: `apps/server/src/api/client/plugins/[name].ts`
+- Database: `apps/server/src/data/database.ts`
+- Event bus: `apps/server/src/lib/event-bus.ts`

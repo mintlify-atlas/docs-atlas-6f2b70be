@@ -1,0 +1,306 @@
+---
+title: Running Locally
+description: Start development servers and work with Brainbox locally
+---
+
+This guide covers how to run Brainbox development servers and common development workflows.
+
+## Start All Services
+
+The fastest way to start all development servers:
+
+```bash
+npm run dev
+```
+
+This uses Turbo to run all dev servers in parallel:
+- **Server** (API) - `http://localhost:3000`
+- **Web** (React app) - `http://localhost:4000`
+- **Desktop** (Electron) - Opens desktop window
+
+<Note>
+  Make sure Docker infrastructure services are running before starting dev servers. See [Development Setup](/development/setup) for details.
+</Note>
+
+## Run Individual Services
+
+You can run each service independently for focused development:
+
+<CodeGroup>
+```bash Server (API)
+cd apps/server && npm run dev
+```
+
+```bash Web App
+cd apps/web && npm run dev
+```
+
+```bash Desktop App
+cd apps/desktop && npm run dev
+```
+</CodeGroup>
+
+### Server (Port 3000)
+
+The Fastify backend API with WebSocket support:
+
+```bash
+cd apps/server
+npm run dev
+```
+
+**Features:**
+- Hot reload with tsx watch
+- Loads environment from `.env` file
+- WebSocket server for real-time sync
+- PostgreSQL database migrations
+- BullMQ background jobs
+
+### Web App (Port 4000)
+
+The React web application:
+
+```bash
+cd apps/web
+npm run dev
+```
+
+**Features:**
+- Hot module replacement (HMR)
+- Vite dev server
+- SQLite WASM database
+- TailwindCSS v4
+- PWA support
+
+### Desktop App
+
+The Electron desktop application:
+
+```bash
+cd apps/desktop
+npm run dev
+```
+
+**Features:**
+- Electron with better-sqlite3
+- Hot reload for renderer and main process
+- Native SQLite database
+- Auto-updates
+
+<Note>
+  On Windows, use `npm run dev:win` to properly set environment variables.
+</Note>
+
+## Watch Mode
+
+Watch and rebuild core packages automatically:
+
+```bash
+npm run watch
+```
+
+This watches changes in:
+- `@brainbox/core`
+- `@brainbox/crdt`
+- `@brainbox/server`
+
+Useful when developing shared packages while running the apps.
+
+## Development Workflows
+
+### Type Checking
+
+Run TypeScript compiler without emitting files:
+
+```bash
+npm run compile
+```
+
+This runs type checking across all packages in the monorepo.
+
+### Testing
+
+<CodeGroup>
+```bash Run All Tests
+npm run test
+```
+
+```bash Watch Mode
+npm run test -- --watch
+```
+
+```bash With Coverage
+npm run coverage
+```
+</CodeGroup>
+
+Brainbox uses Vitest for testing. Tests run in watch mode by default in development.
+
+### Linting and Formatting
+
+<CodeGroup>
+```bash Lint Code
+npm run lint
+```
+
+```bash Format Code
+npm run format
+```
+
+```bash Check Formatting
+npm run format:check
+```
+</CodeGroup>
+
+The project uses:
+- **ESLint** - TypeScript, React, and import rules
+- **Prettier** - Code formatting
+- **Husky** - Git hooks for pre-commit checks
+- **lint-staged** - Run linters on staged files
+
+### Building for Production
+
+<CodeGroup>
+```bash Build All
+npm run build
+```
+
+```bash Clean Build Artifacts
+npm run clean
+```
+</CodeGroup>
+
+The build process:
+1. Type checks with TypeScript
+2. Bundles with appropriate tooling (tsup, Vite, Electron Forge)
+3. Outputs to `dist/` directories
+
+## Debug Mode
+
+Enable debug logging for the server:
+
+```bash
+DEBUG=brainbox:* npm run dev
+```
+
+This enables detailed logging for all Brainbox modules using the `debug` package.
+
+### Database Inspection
+
+Access the PostgreSQL database directly:
+
+```bash
+docker exec -it brainbox_postgres psql -U colanode_user -d colanode_db
+```
+
+Useful SQL commands:
+
+```sql
+-- List all tables
+\dt
+
+-- Describe table schema
+\d table_name
+
+-- Query nodes
+SELECT * FROM nodes LIMIT 10;
+
+-- Check migrations
+SELECT * FROM migrations;
+```
+
+## Common Development Tasks
+
+### Reset Database
+
+To start with a fresh database:
+
+```bash
+docker compose -f hosting/docker/docker-compose.yaml down -v
+docker compose -f hosting/docker/docker-compose.yaml up -d
+```
+
+<Note>
+  This will delete all data. Use with caution.
+</Note>
+
+### Clear Local Storage
+
+For the web app, clear browser storage:
+1. Open DevTools (F12)
+2. Application → Storage → Clear site data
+3. Refresh the page
+
+For desktop app, delete the SQLite database file located in the user data directory.
+
+### Rebuild Dependencies
+
+If you encounter dependency issues:
+
+```bash
+npm run clean
+rm -rf node_modules package-lock.json
+npm install
+```
+
+For Electron native modules:
+
+```bash
+cd apps/desktop
+npm run postinstall  # Rebuilds Electron native modules
+```
+
+## Environment Variables
+
+Key environment variables for local development:
+
+<CodeGroup>
+```bash Server (apps/server/.env)
+NODE_ENV=production
+SERVER_MODE=standalone
+POSTGRES_URL=postgres://colanode_user:postgrespass123@localhost:5432/colanode_db
+REDIS_URL=redis://:your_valkey_password@localhost:6379/0
+STORAGE_S3_ENDPOINT=http://localhost:9000
+STORAGE_S3_ACCESS_KEY=minioadmin
+STORAGE_S3_SECRET_KEY=your_minio_password
+STORAGE_S3_BUCKET=brainbox
+ACCOUNT_VERIFICATION_TYPE=automatic
+```
+
+```bash Web (build-time)
+VITE_SERVER_URL=http://localhost:3000/config
+```
+</CodeGroup>
+
+## Performance Tips
+
+### Faster Rebuilds
+
+Use watch mode for packages you're actively developing:
+
+```bash
+npm run watch  # Watches core, crdt, server packages
+```
+
+### Turbo Cache
+
+Turbo caches build outputs. To clear the cache:
+
+```bash
+npx turbo clean
+```
+
+### Selective Builds
+
+Build specific packages only:
+
+```bash
+npx turbo run build --filter=@brainbox/core
+npx turbo run build --filter=@brainbox/server
+```
+
+## Next Steps
+
+- [Explore the project structure](/development/project-structure)
+- Review [CLAUDE.md](https://github.com/brainbox/brainbox/blob/main/CLAUDE.md) for architecture details
+- Check [CONTRIBUTING.md](https://github.com/brainbox/brainbox/blob/main/CONTRIBUTING.md) for contribution guidelines

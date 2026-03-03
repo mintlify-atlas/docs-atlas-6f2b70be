@@ -1,0 +1,589 @@
+---
+title: 'Collaboration'
+description: 'Real-time editing, offline-first sync, and CRDT conflict resolution'
+icon: 'users'
+---
+
+Brainbox is built on a **local-first** architecture that enables real-time collaboration, offline editing, and automatic conflict resolution using CRDTs (Conflict-free Replicated Data Types).
+
+## How It Works
+
+Brainbox's collaboration system operates on four core principles:
+
+<Steps>
+  <Step title="Local-first storage">
+    Every client maintains a full SQLite database. All changes write locally first, ensuring instant responsiveness and offline capability.
+  </Step>
+  
+  <Step title="Background sync">
+    When connected, changes automatically sync to the server via WebSocket. The server persists data to PostgreSQL as the source of truth.
+  </Step>
+  
+  <Step title="CRDT merge">
+    Concurrent edits from multiple users merge automatically using Yjs CRDTs. No manual conflict resolution required.
+  </Step>
+  
+  <Step title="Real-time updates">
+    All connected clients receive live updates through WebSocket broadcasts, showing changes as they happen.
+  </Step>
+</Steps>
+
+## Architecture Overview
+
+The sync architecture consists of multiple layers:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Client (Browser)                      │
+├─────────────────────────────────────────────────────────┤
+│  UI Components (React)                                   │
+│  ↓                                                       │
+│  Client Database (SQLite - WASM)                         │
+│  ↓                                                       │
+│  Sync Engine (@brainbox/client)                         │
+│  ↓                                                       │
+│  WebSocket Connection                                    │
+└─────────────────────────────────────────────────────────┘
+                        ↕
+┌─────────────────────────────────────────────────────────┐
+│                    Server (Node.js)                      │
+├─────────────────────────────────────────────────────────┤
+│  WebSocket Handlers (Fastify)                           │
+│  ↓                                                       │
+│  Synchronizers (Broadcasters)                           │
+│  ↓                                                       │
+│  Server Database (PostgreSQL)                            │
+│  ↓                                                       │
+│  CRDT Engine (Yjs)                                      │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Synchronization Types
+
+Brainbox syncs different types of data through specialized synchronizers:
+
+<CardGroup cols={2}>
+  <Card title="Node Updates" icon="diagram-project">
+    Changes to node attributes (name, fields, etc.)
+  </Card>
+  
+  <Card title="Document Updates" icon="file-pen">
+    Rich text content changes in pages and records
+  </Card>
+  
+  <Card title="Collaborations" icon="user-plus">
+    User presence and active collaborators
+  </Card>
+  
+  <Card title="Node Reactions" icon="heart">
+    Emoji reactions on messages
+  </Card>
+  
+  <Card title="Node Interactions" icon="hand-pointer">
+    User interactions and activity
+  </Card>
+  
+  <Card title="Node Tombstones" icon="trash">
+    Deleted nodes and cleanup
+  </Card>
+  
+  <Card title="User Updates" icon="user-gear">
+    User profile and settings changes
+  </Card>
+</CardGroup>
+
+## Real-Time Editing
+
+Multiple users can edit the same document simultaneously without conflicts:
+
+### Presence Awareness
+
+See who else is viewing or editing:
+
+- **Active users** - Avatar indicators show who's in the document
+- **Live cursors** - See where others are typing in real-time
+- **Selections** - View other users' text selections
+- **Activity status** - Online/offline indicators
+
+### CRDT-Based Merging
+
+Brainbox uses **Yjs** for conflict-free collaborative editing:
+
+<Tabs>
+  <Tab title="How CRDTs Work">
+    CRDTs (Conflict-free Replicated Data Types) are data structures that can be updated independently on multiple replicas and automatically merged:
+    
+    **Key properties:**
+    - **Commutative** - Order of operations doesn't matter
+    - **Associative** - Grouping of operations doesn't matter
+    - **Idempotent** - Applying an operation twice has the same effect as once
+    
+    **Example:**
+    
+    ```typescript
+    // User A inserts "Hello" at position 0
+    // User B inserts "World" at position 0
+    // Traditional merge: conflict!
+    // CRDT merge: "HelloWorld" or "WorldHello" (deterministic)
+    
+    // With Yjs:
+    import * as Y from 'yjs'
+    
+    const doc = new Y.Doc()
+    const yText = doc.getText('content')
+    
+    // User A's edit
+    yText.insert(0, 'Hello')
+    
+    // User B's edit (concurrent)
+    yText.insert(0, 'World')
+    
+    // Result: Automatic merge with preserved intent
+    ```
+  </Tab>
+  
+  <Tab title="Rich Text Handling">
+    Yjs handles rich text with formatting marks:
+    
+    - **Character-level tracking** - Each character has a unique ID
+    - **Format preservation** - Bold, italic, etc. merge correctly
+    - **Block structure** - Headings, lists, and blocks maintain integrity
+    - **Deletion tracking** - Tombstones prevent resurrection of deleted content
+    
+    **Under the hood:**
+    
+    ```typescript
+    // Brainbox page content structure
+    {
+      type: "rich_text",
+      blocks: {
+        "block_1": {
+          id: "block_1",
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: "Collaborative editing",
+              marks: [
+                { type: "bold", attrs: {} }
+              ]
+            }
+          ],
+          index: "a0",
+          parentId: null
+        }
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Database Merging">
+    Database fields and records also use CRDTs:
+    
+    - **Field values** - Last-write-wins with vector clocks
+    - **Field definitions** - Schema changes merge safely
+    - **Record order** - Fractional indexing maintains sort order
+    - **Views** - Filter and sort configurations sync independently
+    
+    **Conflict resolution:**
+    
+    | Scenario | Resolution |
+    |----------|------------|
+    | Same field edited by two users | Last write wins (by timestamp) |
+    | Different fields edited | Both changes apply |
+    | Record created with same ID | Server-assigned ID prevents collision |
+    | View filters changed | Per-user view state (not synced) |
+  </Tab>
+</Tabs>
+
+## Offline Mode
+
+Brainbox works fully offline with automatic sync when reconnected:
+
+### Offline Capabilities
+
+<CardGroup cols={2}>
+  <Card title="Full CRUD" icon="database">
+    Create, read, update, and delete nodes offline
+  </Card>
+  
+  <Card title="File Uploads" icon="upload">
+    Queue file uploads for processing when online
+  </Card>
+  
+  <Card title="Search" icon="magnifying-glass">
+    Search locally cached content
+  </Card>
+  
+  <Card title="Optimistic UI" icon="wand-magic-sparkles">
+    Changes appear instantly in the UI
+  </Card>
+</CardGroup>
+
+### Offline Workflow
+
+<Steps>
+  <Step title="Connection lost">
+    WebSocket disconnects. UI shows offline indicator.
+  </Step>
+  
+  <Step title="Continue working">
+    All changes write to local SQLite database. No interruption to user experience.
+  </Step>
+  
+  <Step title="Queue sync">
+    Changes queue with pending sync status.
+  </Step>
+  
+  <Step title="Reconnect">
+    WebSocket reconnects automatically when internet returns.
+  </Step>
+  
+  <Step title="Sync queued changes">
+    Pending changes upload to server in order.
+  </Step>
+  
+  <Step title="Merge conflicts">
+    CRDTs merge any concurrent changes from other users.
+  </Step>
+  
+  <Step title="Broadcast updates">
+    Server broadcasts merged state to all clients.
+  </Step>
+</Steps>
+
+### Handling Conflicts
+
+<Info>
+  In most cases, conflicts resolve automatically via CRDTs. Manual intervention is rarely needed.
+</Info>
+
+When conflicts do occur:
+
+<Tabs>
+  <Tab title="Automatic Resolution">
+    Most conflicts resolve without user action:
+    
+    **Text edits:**
+    - Concurrent insertions: Both apply, merged by CRDT
+    - Concurrent deletions: Deleted content removed
+    - Format conflicts: Both formats apply (text can be bold AND italic)
+    
+    **Database edits:**
+    - Different fields: Both changes apply
+    - Same field: Last write wins (by timestamp)
+    - Record deletion: Tombstone propagates, record removed for all users
+  </Tab>
+  
+  <Tab title="Edge Cases">
+    Rare scenarios requiring special handling:
+    
+    **Schema changes:**
+    - Adding field: New field appears for all users
+    - Removing field: Field removed, data preserved in tombstone
+    - Field type change: Migration applies with validation
+    
+    **File conflicts:**
+    - Same filename: Automatic rename with timestamp
+    - Concurrent uploads: Both files saved with unique IDs
+    - Delete vs edit: Delete wins (file removed)
+    
+    **Permission conflicts:**
+    - Role changes: Most recent role assignment wins
+    - Access revoked: User sees read-only or loses access on next sync
+  </Tab>
+</Tabs>
+
+## Sync Engine Implementation
+
+The sync engine coordinates data flow between client and server:
+
+### Client-Side Handlers
+
+Located in `packages/client/src/handlers/`:
+
+```typescript
+// Example: Node updates handler
+export async function handleNodeUpdates(
+  input: NodesUpdatesInput
+): Promise<void> {
+  const db = await openDatabase();
+  
+  for (const node of input.data) {
+    await db
+      .insertInto('nodes')
+      .values({
+        id: node.id,
+        type: node.type,
+        attributes: JSON.stringify(node.attributes),
+        updatedAt: node.updatedAt,
+      })
+      .onConflict((oc) =>
+        oc.column('id').doUpdateSet({
+          attributes: JSON.stringify(node.attributes),
+          updatedAt: node.updatedAt,
+        })
+      )
+      .execute();
+  }
+}
+```
+
+### Server-Side Broadcasters
+
+Located in `apps/server/src/synchronizers/`:
+
+```typescript
+// Example: Broadcasting node updates
+export async function broadcastNodeUpdate(
+  nodeId: string,
+  workspaceId: string
+): Promise<void> {
+  const node = await getNode(nodeId);
+  
+  await broadcastToWorkspace(workspaceId, {
+    type: 'nodes-updates',
+    data: [node],
+  });
+}
+```
+
+## Performance Optimization
+
+Brainbox optimizes sync performance through:
+
+<CardGroup cols={2}>
+  <Card title="Batching" icon="layer-group">
+    Multiple changes batch into single sync messages
+  </Card>
+  
+  <Card title="Debouncing" icon="timer">
+    Rapid edits debounce before syncing
+  </Card>
+  
+  <Card title="Compression" icon="file-zipper">
+    WebSocket messages use compression
+  </Card>
+  
+  <Card title="Delta Sync" icon="arrows-rotate">
+    Only changes sync, not full documents
+  </Card>
+  
+  <Card title="Indexing" icon="magnifying-glass">
+    SQLite indexes speed up queries
+  </Card>
+  
+  <Card title="Connection Pooling" icon="plug">
+    Reuse database connections
+  </Card>
+</CardGroup>
+
+### Sync Strategies
+
+<Tabs>
+  <Tab title="Immediate Sync">
+    High-priority changes sync immediately:
+    
+    - Chat messages
+    - Node creation/deletion
+    - Permission changes
+    - User presence updates
+  </Tab>
+  
+  <Tab title="Debounced Sync">
+    Frequent changes debounce to reduce traffic:
+    
+    - Text editing (300ms debounce)
+    - Field value updates (500ms)
+    - Cursor position (1000ms)
+  </Tab>
+  
+  <Tab title="Batched Sync">
+    Multiple changes combine into batches:
+    
+    - Document updates (batch per 100 operations)
+    - Database bulk imports (batch per 1000 records)
+    - File uploads (multipart chunks)
+  </Tab>
+</Tabs>
+
+## Data Consistency
+
+Brainbox ensures data consistency across clients:
+
+### Consistency Guarantees
+
+<AccordionGroup>
+  <Accordion title="Eventual Consistency">
+    All clients eventually converge to the same state:
+    
+    - **Guarantee:** Given no new updates, all replicas converge
+    - **Timeline:** Typically within seconds of reconnection
+    - **Verification:** Vector clocks track causal ordering
+  </Accordion>
+  
+  <Accordion title="Causal Consistency">
+    Operations preserve cause-and-effect relationships:
+    
+    - **Guarantee:** If operation A causes operation B, all clients see A before B
+    - **Implementation:** Logical timestamps and dependency tracking
+    - **Example:** Reply to message always appears after original message
+  </Accordion>
+  
+  <Accordion title="Strong Consistency (Server)">
+    Server database maintains strong consistency:
+    
+    - **Guarantee:** Server always has authoritative state
+    - **Implementation:** PostgreSQL ACID transactions
+    - **Use:** Conflict resolution and audit trail
+  </Accordion>
+</AccordionGroup>
+
+### Conflict-Free Operations
+
+Certain operations are guaranteed conflict-free:
+
+| Operation | Conflict-Free? | Reason |
+|-----------|----------------|--------|
+| **Insert text** | ✓ | CRDT positions are unique |
+| **Delete text** | ✓ | Tombstones prevent resurrection |
+| **Create node** | ✓ | UUIDs prevent ID collision |
+| **Update different fields** | ✓ | Independent field state |
+| **Add reaction** | ✓ | Set-based CRDT |
+| **Update same field** | ✗ | Last-write-wins |
+| **Reorder items** | ~ | Fractional indexing reduces conflicts |
+
+## Scaling Collaboration
+
+Brainbox scales to support large teams:
+
+<CardGroup cols={2}>
+  <Card title="WebSocket Rooms" icon="door-open">
+    Users join workspace-specific rooms for targeted broadcasts
+  </Card>
+  
+  <Card title="Redis Pub/Sub" icon="rss">
+    Horizontal scaling across multiple server instances
+  </Card>
+  
+  <Card title="Connection Pooling" icon="water">
+    Efficient database connection management
+  </Card>
+  
+  <Card title="Rate Limiting" icon="gauge-high">
+    Prevent abuse with per-user rate limits
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Trust the sync engine">
+    Don't manually refresh to see changes. The sync engine automatically propagates updates in real-time.
+  </Accordion>
+  
+  <Accordion title="Work offline confidently">
+    Brainbox is designed for offline work. Don't wait for internet connection - keep working and changes will sync later.
+  </Accordion>
+  
+  <Accordion title="Avoid rapid field type changes">
+    Changing field types (e.g., text to number) can cause data loss if users have offline edits. Plan schema changes carefully.
+  </Accordion>
+  
+  <Accordion title="Monitor sync status">
+    Watch the sync indicator in the UI. If changes aren't syncing, check your connection.
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<Tabs>
+  <Tab title="Sync Issues">
+    **Changes not syncing:**
+    
+    1. Check internet connection
+    2. Verify WebSocket status in network tab
+    3. Check browser console for errors
+    4. Try disconnecting and reconnecting
+    5. Clear local cache and re-sync
+    
+    **Slow sync:**
+    
+    1. Check network speed
+    2. Reduce concurrent edits
+    3. Limit file upload size
+    4. Check server load
+  </Tab>
+  
+  <Tab title="Conflict Issues">
+    **Unexpected data loss:**
+    
+    1. Check server logs for conflict resolution
+    2. Verify timestamps on conflicting changes
+    3. Review CRDT merge logs
+    4. Contact admin for data recovery
+    
+    **Duplicate content:**
+    
+    1. Likely from double-submit (network issue)
+    2. Delete duplicate manually
+    3. Report bug if reproducible
+  </Tab>
+  
+  <Tab title="Offline Issues">
+    **Can't work offline:**
+    
+    1. Ensure content was loaded while online
+    2. Check browser storage quota
+    3. Verify service worker is registered
+    4. Clear cache and reload while online
+    
+    **Offline changes lost:**
+    
+    1. Check browser didn't clear storage
+    2. Verify sync queue in developer tools
+    3. Check for browser crashes during offline work
+  </Tab>
+</Tabs>
+
+## Technical Deep Dive
+
+For developers interested in the implementation:
+
+<CardGroup cols={2}>
+  <Card title="CRDT Package" icon="code">
+    `packages/crdt/` - Yjs document handling
+  </Card>
+  
+  <Card title="Client Sync" icon="rotate">
+    `packages/client/` - Sync engine and handlers
+  </Card>
+  
+  <Card title="Server Sync" icon="server">
+    `apps/server/src/synchronizers/` - Broadcasters
+  </Card>
+  
+  <Card title="WebSocket API" icon="plug">
+    `apps/server/src/api/` - WebSocket routes
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Pages" icon="file-lines" href="/features/pages">
+    Real-time collaborative editing
+  </Card>
+  
+  <Card title="Databases" icon="database" href="/features/databases">
+    Collaborative data management
+  </Card>
+  
+  <Card title="Chat" icon="comments" href="/features/chat">
+    Real-time messaging
+  </Card>
+  
+  <Card title="Development" icon="code" href="/development">
+    Build with Brainbox
+  </Card>
+</CardGroup>

@@ -1,0 +1,161 @@
+---
+title: "Welcome to Brainbox"
+description: "Local-first collaboration workspace you can self-host. A privacy-focused alternative to Notion that works offline."
+---
+
+<img
+  className="block"
+  src="/images/brainbox-desktop-preview.gif"
+  alt="Brainbox Desktop Preview"
+/>
+
+## Own your data, collaborate in real-time
+
+Brainbox is a privacy-focused workspace that puts you in control. Work offline, sync seamlessly, and collaborate with your team—all while keeping your data on your own infrastructure.
+
+<CardGroup cols={2}>
+  <Card
+    title="Get started"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Create your first workspace and page in minutes
+  </Card>
+  <Card
+    title="Install Brainbox"
+    icon="download"
+    href="/installation"
+  >
+    Web app, desktop app, or self-hosted deployment
+  </Card>
+  <Card
+    title="Self-hosting guide"
+    icon="server"
+    href="/self-hosting/docker"
+  >
+    Deploy on your own infrastructure with Docker
+  </Card>
+  <Card
+    title="Architecture overview"
+    icon="diagram-project"
+    href="/architecture/overview"
+  >
+    Learn how local-first sync and CRDTs work
+  </Card>
+</CardGroup>
+
+## Core features
+
+<CardGroup cols={3}>
+  <Card title="Rich text editor" icon="pen-fancy">
+    Notion-like pages with blocks, formatting, and embeds
+  </Card>
+  <Card title="Databases" icon="table">
+    Custom fields with table, kanban, and calendar views
+  </Card>
+  <Card title="Real-time chat" icon="messages">
+    Instant messaging built for teams
+  </Card>
+  <Card title="File storage" icon="folder">
+    Upload and manage files in secure workspaces
+  </Card>
+  <Card title="Offline-first" icon="plane">
+    Work without internet, sync when reconnected
+  </Card>
+  <Card title="CRDT collaboration" icon="users">
+    Multiple users editing simultaneously with Yjs
+  </Card>
+</CardGroup>
+
+## How it works
+
+Brainbox uses a **local-first architecture** powered by CRDTs for seamless collaboration:
+
+<Steps>
+  <Step title="Local database">
+    Each client maintains a local SQLite database for instant performance
+  </Step>
+  <Step title="Offline work">
+    All changes save locally first—no internet required
+  </Step>
+  <Step title="Background sync">
+    When connected, changes sync automatically to the server
+  </Step>
+  <Step title="Conflict resolution">
+    Yjs CRDTs handle simultaneous edits without conflicts
+  </Step>
+</Steps>
+
+<Tip>
+  Try Brainbox online at [brainbox.sh](https://brainbox.sh/) or self-host with Docker in under 5 minutes.
+</Tip>
+
+## Tech stack
+
+Built with modern, battle-tested technologies:
+
+<CardGroup cols={2}>
+  <Card title="Frontend" icon="react">
+    React 19, TypeScript, TailwindCSS v4, Vite
+  </Card>
+  <Card title="Backend" icon="server">
+    Fastify, PostgreSQL, Redis, S3-compatible storage
+  </Card>
+  <Card title="Desktop" icon="desktop">
+    Electron with native SQLite via better-sqlite3
+  </Card>
+  <Card title="Collaboration" icon="code-merge">
+    Yjs CRDTs, WebSocket sync, TipTap editor
+  </Card>
+</CardGroup>
+
+## Open source and self-hosted
+
+Brainbox is **Apache 2.0 licensed** and designed for self-hosting:
+
+- Deploy on Docker, Kubernetes, or any cloud platform
+- Full control over your data and infrastructure  
+- No vendor lock-in or usage limits
+- Active community and regular updates
+
+<Card
+  title="View on GitHub"
+  icon="github"
+  href="https://github.com/brainbox/brainbox"
+  horizontal
+>
+  Star the repo and contribute to the project
+</Card>
+
+## What's next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Quickstart guide"
+    icon="play"
+    href="/quickstart"
+  >
+    Get up and running in 5 minutes
+  </Card>
+  <Card
+    title="Installation options"
+    icon="download"
+    href="/installation"
+  >
+    Web, desktop, or self-hosted deployment
+  </Card>
+  <Card
+    title="Core features"
+    icon="stars"
+    href="/features/pages"
+  >
+    Explore pages, databases, chat, and more
+  </Card>
+  <Card
+    title="Development setup"
+    icon="code"
+    href="/development/setup"
+  >
+    Contribute to Brainbox or build custom features
+  </Card>
+</CardGroup>

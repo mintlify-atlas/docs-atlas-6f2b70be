@@ -1,0 +1,320 @@
+---
+title: Command Functions
+description: Reference for client command functions in Brainbox
+---
+
+## Overview
+
+The Brainbox client package does not currently expose a dedicated `/commands` module. Command-like operations are handled through the mutations and services layers.
+
+## Alternative Approaches
+
+Instead of commands, use these patterns:
+
+### Direct Service Access
+
+For complex operations, access services directly:
+
+```typescript
+import { AppService } from '@brainbox/client/services';
+
+const app = new AppService(meta, fs, kysely, path);
+await app.init();
+
+const account = app.getAccount(accountId);
+const workspace = account?.getWorkspace(workspaceId);
+
+// Use workspace services
+await workspace?.synchronizer.sync();
+await workspace?.mutations.scheduleSync();
+```
+
+### Mutation Batching
+
+For atomic multi-step operations, batch mutations:
+
+```typescript
+import { Mediator } from '@brainbox/client/handlers';
+
+const mediator = new Mediator(app);
+
+// Create space with initial structure
+const spaceResult = await mediator.executeMutation({
+  type: 'space.create',
+  accountId,
+  workspaceId,
+  name: 'Product',
+  description: 'Product documentation'
+});
+
+if (spaceResult.success) {
+  const { id: spaceId, initialPageId } = spaceResult.output;
+  
+  // Create folder structure
+  const folderResult = await mediator.executeMutation({
+    type: 'folder.create',
+    accountId,
+    workspaceId,
+    parentId: spaceId,
+    name: 'Resources',
+    avatar: '📁'
+  });
+  
+  if (folderResult.success) {
+    // Create pages within folder
+    await mediator.executeMutation({
+      type: 'page.create',
+      accountId,
+      workspaceId,
+      parentId: folderResult.output.id,
+      name: 'Getting Started',
+      avatar: '🚀'
+    });
+  }
+}
+```
+
+### Job Queue
+
+For background tasks, use the job service:
+
+```typescript
+import { JobService } from '@brainbox/client/services';
+
+// Schedule recurring cleanup
+await app.jobs.upsertJobSchedule(
+  'workspace.cleanup',
+  {
+    type: 'workspace.cleanup',
+    accountId,
+    workspaceId
+  },
+  ms('1 hour'),
+  {
+    deduplication: {
+      key: `cleanup.${workspaceId}`,
+      replace: true
+    }
+  }
+);
+
+// Queue one-time job
+await app.jobs.addJob(
+  {
+    type: 'file.process',
+    accountId,
+    workspaceId,
+    fileId
+  },
+  {
+    delay: 1000
+  }
+);
+```
+
+### Custom Service Methods
+
+For workspace-specific operations:
+
+```typescript
+// Node operations
+await workspace.nodes.createNode({
+  type: 'page',
+  parentId,
+  attributes: { name: 'New Page' }
+});
+
+await workspace.nodes.updateNode(nodeId, {
+  attributes: { name: 'Updated Name' }
+});
+
+await workspace.nodes.deleteNode(nodeId);
+
+// Document operations
+const doc = await workspace.documents.getDocument(documentId);
+await workspace.documents.applyUpdate(documentId, update);
+
+// File operations
+await workspace.files.uploadFile(file, parentId);
+await workspace.files.downloadFile(fileId);
+
+// Sync operations
+await workspace.synchronizer.sync();
+await workspace.synchronizer.pull();
+await workspace.synchronizer.push();
+```
+
+## Common Patterns
+
+### Workspace Setup
+
+Complete workspace initialization:
+
+```typescript
+async function setupWorkspace(
+  mediator: Mediator,
+  accountId: string,
+  workspaceId: string
+) {
+  // Create default spaces
+  const spaces = ['General', 'Projects', 'Resources'];
+  
+  for (const spaceName of spaces) {
+    const result = await mediator.executeMutation({
+      type: 'space.create',
+      accountId,
+      workspaceId,
+      name: spaceName,
+      description: `${spaceName} workspace`
+    });
+    
+    if (!result.success) {
+      console.error(`Failed to create ${spaceName}:`, result.error);
+    }
+  }
+  
+  // Create default channel
+  await mediator.executeMutation({
+    type: 'channel.create',
+    accountId,
+    workspaceId,
+    name: 'general',
+    avatar: '#'
+  });
+}
+```
+
+### Bulk Import
+
+Import multiple items:
+
+```typescript
+async function importPages(
+  mediator: Mediator,
+  accountId: string,
+  workspaceId: string,
+  parentId: string,
+  pages: Array<{ name: string; content: string }>
+) {
+  const results = [];
+  
+  for (const page of pages) {
+    const result = await mediator.executeMutation({
+      type: 'page.create',
+      accountId,
+      workspaceId,
+      parentId,
+      name: page.name
+    });
+    
+    if (result.success) {
+      // Update content via document.update
+      const pageId = result.output.id;
+      // ... apply document updates
+      results.push({ success: true, id: pageId });
+    } else {
+      results.push({ success: false, error: result.error });
+    }
+  }
+  
+  return results;
+}
+```
+
+### Cleanup Operations
+
+Batch deletion:
+
+```typescript
+async function cleanupOldFiles(
+  mediator: Mediator,
+  accountId: string,
+  workspaceId: string,
+  olderThanDays: number
+) {
+  const workspace = app.getAccount(accountId)?.getWorkspace(workspaceId);
+  if (!workspace) return;
+  
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - olderThanDays);
+  
+  const oldFiles = await workspace.database
+    .selectFrom('nodes')
+    .selectAll()
+    .where('type', '=', 'file')
+    .where('created_at', '<', cutoff.toISOString())
+    .execute();
+  
+  for (const file of oldFiles) {
+    await mediator.executeMutation({
+      type: 'file.delete',
+      accountId,
+      workspaceId,
+      fileId: file.id
+    });
+  }
+}
+```
+
+## Event-Driven Operations
+
+Use the event bus for reactive operations:
+
+```typescript
+import { eventBus } from '@brainbox/client/lib/event-bus';
+
+// Subscribe to events
+eventBus.subscribe((event) => {
+  if (event.type === 'node.created') {
+    console.log('New node created:', event.nodeId);
+  }
+  
+  if (event.type === 'sync.completed') {
+    console.log('Sync completed for workspace:', event.workspaceId);
+  }
+});
+
+// Emit custom events
+eventBus.publish({
+  type: 'custom.event',
+  data: { /* ... */ }
+});
+```
+
+## Future Commands
+
+If a dedicated commands API is added in the future, it would likely follow this pattern:
+
+```typescript
+// Hypothetical future API
+import { executeCommand } from '@brainbox/client/commands';
+
+await executeCommand({
+  type: 'workspace.setup',
+  accountId,
+  workspaceId,
+  template: 'standard'
+});
+
+await executeCommand({
+  type: 'bulk.import',
+  accountId,
+  workspaceId,
+  source: 'notion',
+  data: exportData
+});
+```
+
+## Related Documentation
+
+<CardGroup cols={3}>
+  <Card title="Mutations" icon="pen-to-square" href="/api/client/mutations">
+    Use mutations for state changes
+  </Card>
+  <Card title="Queries" icon="magnifying-glass" href="/api/client/queries">
+    Query local data
+  </Card>
+  <Card title="Services" icon="gears" href="/packages/client">
+    Learn about client services
+  </Card>
+</CardGroup>

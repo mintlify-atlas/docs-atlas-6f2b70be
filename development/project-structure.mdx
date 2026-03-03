@@ -1,0 +1,344 @@
+---
+title: Project Structure
+description: Understanding Brainbox's monorepo architecture and codebase organization
+---
+
+Brainbox is organized as a Turbo monorepo with npm workspaces. This guide explains the structure and purpose of each directory.
+
+## Monorepo Overview
+
+```
+brainbox/
+├── apps/           # Deployable applications
+│   ├── server/     # Fastify API server
+│   ├── web/        # React web application
+│   └── desktop/    # Electron desktop app
+├── packages/       # Shared packages
+│   ├── core/       # Types, schemas, business logic
+│   ├── crdt/       # Yjs CRDT implementation
+│   ├── client/     # Sync engine and local database
+│   └── ui/         # Component library (Radix + TailwindCSS)
+├── scripts/        # Build and maintenance scripts
+├── hosting/        # Deployment configurations
+│   ├── docker/     # Docker Compose setup
+│   └── kubernetes/ # Kubernetes manifests
+└── assets/         # Static assets and branding
+```
+
+<Note>
+  The monorepo uses **npm workspaces** for package management and **Turbo** for build orchestration and caching.
+</Note>
+
+## Apps
+
+### Server (`apps/server/`)
+
+Fastify-based API server with WebSocket support for real-time collaboration.
+
+**Key directories:**
+```
+apps/server/src/
+├── api/              # REST API routes
+│   └── client/       # Client-facing endpoints
+├── data/             # Database layer
+│   └── migrations/   # PostgreSQL migrations
+├── services/         # Business logic services
+├── synchronizers/    # WebSocket sync broadcasters
+├── jobs/             # Background jobs (BullMQ)
+└── lib/              # Utilities and helpers
+```
+
+**Tech stack:**
+- Fastify - Web framework
+- Kysely - Type-safe SQL query builder
+- PostgreSQL - Primary database
+- Redis - Message queue and caching
+- BullMQ - Background job processing
+- Yjs - CRDT for document collaboration
+
+**NPM scripts:**
+```bash
+npm run dev      # Start with tsx watch and hot reload
+npm run build    # Type check and bundle with tsup
+npm run compile  # Type check only
+```
+
+### Web (`apps/web/`)
+
+React-based web application with offline-first capabilities.
+
+**Key directories:**
+```
+apps/web/src/
+├── components/   # React components
+├── pages/        # Page components
+├── hooks/        # Custom React hooks
+├── workers/      # Web Workers for SQLite
+└── lib/          # Utilities and configuration
+```
+
+**Tech stack:**
+- React 19 - UI framework
+- Vite - Build tool and dev server
+- TailwindCSS v4 - Styling
+- TanStack Query - Data fetching and caching
+- SQLite WASM - Client-side database
+- TipTap/ProseMirror - Rich text editor
+
+**NPM scripts:**
+```bash
+npm run dev      # Vite dev server on port 4000
+npm run build    # Production build
+npm run serve    # Preview production build
+```
+
+### Desktop (`apps/desktop/`)
+
+Electron application with native SQLite database.
+
+**Key directories:**
+```
+apps/desktop/src/
+├── main/         # Electron main process
+├── preload/      # Preload scripts
+└── renderer/     # React renderer (shares web code)
+```
+
+**Tech stack:**
+- Electron - Desktop framework
+- better-sqlite3 - Native SQLite bindings
+- Electron Forge - Build and packaging
+- Vite - Renderer bundling
+
+**NPM scripts:**
+```bash
+npm run dev      # Start Electron with hot reload
+npm run make     # Package for distribution
+npm run publish  # Publish to GitHub releases
+```
+
+## Packages
+
+### Core (`packages/core/`)
+
+Shared TypeScript types, Zod schemas, and business logic.
+
+**Key directories:**
+```
+packages/core/src/
+├── types/           # TypeScript type definitions
+├── registry/        # Node type registry
+│   └── nodes/       # Node models (space, folder, page, etc.)
+├── synchronizers/   # Sync type definitions
+├── lib/             # Shared utilities
+└── shortcuts/       # Keyboard shortcuts
+```
+
+**Node types:**
+- `space` - Workspace container
+- `folder` - Organizational folder
+- `page` - Rich text document
+- `database` - Structured data table
+- `database-view` - Table, kanban, calendar views
+- `record` - Database row
+- `field` - Database column
+- `file` - File attachments
+- `channel` - Chat channel
+- `message` - Chat message
+
+**Usage:**
+```typescript
+import { NodeType } from '@brainbox/core';
+import { pageModel } from '@brainbox/core/registry/nodes/page';
+```
+
+### CRDT (`packages/crdt/`)
+
+Yjs-based CRDT implementation for collaborative editing.
+
+**Key features:**
+- Document collaboration with Yjs
+- Conflict-free merging
+- Undo/redo support
+- Cursor awareness
+
+**Usage:**
+```typescript
+import { createDocument } from '@brainbox/crdt';
+```
+
+### Client (`packages/client/`)
+
+Client-side sync engine, local database, and data access layer.
+
+**Key directories:**
+```
+packages/client/src/
+├── databases/       # SQLite database setup and migrations
+├── queries/         # Data fetching functions
+├── mutations/       # Data modification functions
+├── handlers/        # WebSocket sync handlers (pull)
+├── services/        # Client-side services
+├── jobs/            # Background sync jobs
+└── lib/             # Utilities
+```
+
+**Architecture:**
+1. Local SQLite database (WASM on web, better-sqlite3 on desktop)
+2. Optimistic updates to local DB
+3. WebSocket sync with server
+4. Conflict resolution via CRDT
+
+**Usage:**
+```typescript
+import { openDatabase } from '@brainbox/client/databases';
+import { queryNodes } from '@brainbox/client/queries';
+import { createNode } from '@brainbox/client/mutations';
+```
+
+### UI (`packages/ui/`)
+
+Shared component library built with Radix and TailwindCSS.
+
+**Key directories:**
+```
+packages/ui/src/
+├── components/   # Reusable UI components
+├── primitives/   # Radix UI primitives
+├── icons/        # Lucide icons
+└── styles/       # TailwindCSS configuration
+```
+
+**Design system:**
+- Radix UI - Accessible primitives
+- TailwindCSS v4 - Utility-first CSS
+- Flat design - Minimal shadows
+- Consistent spacing and typography
+
+## Configuration Files
+
+### Root Configuration
+
+```
+brainbox/
+├── package.json              # Monorepo configuration
+├── turbo.json                # Turbo build pipeline
+├── tsconfig.base.json        # Base TypeScript config
+├── vitest.workspace.ts       # Vitest test configuration
+├── .eslintrc.json           # ESLint rules
+├── .prettierrc              # Prettier formatting
+├── commitlint.config.js     # Commit message linting
+└── lint-staged.config.js    # Pre-commit hooks
+```
+
+### Workspace Configuration
+
+Defined in root `package.json`:
+
+```json
+{
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "scripts"
+  ],
+  "packageManager": "npm@10.9.0"
+}
+```
+
+### Turbo Pipeline
+
+Defined in `turbo.json`:
+
+```json
+{
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "out/**", "assets/**"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    }
+  }
+}
+```
+
+This ensures packages build in the correct order and caches outputs for faster rebuilds.
+
+## Data Flow Architecture
+
+```
+Client (Web/Desktop)
+  ↓
+  Local SQLite Database
+  ↓
+  Optimistic write
+  ↓
+  WebSocket Sync
+  ↓
+Server
+  ↓
+  PostgreSQL (source of truth)
+  ↓
+  Broadcast to connected clients
+  ↓
+  Yjs CRDT merge
+```
+
+**Sync types:**
+- `nodes-updates` - Node attributes and hierarchy
+- `document-updates` - Rich text document changes
+- `collaborations` - Real-time presence
+- `node-reactions` - Emoji reactions
+- `node-interactions` - Views, edits tracking
+- `node-tombstones` - Soft deletes
+- `users` - User profile updates
+
+## Package Dependencies
+
+**Dependency graph:**
+```
+apps/server    → packages/core, packages/crdt
+apps/web       → packages/core, packages/client, packages/ui
+apps/desktop   → packages/core, packages/client, packages/ui
+packages/client → packages/core, packages/crdt
+packages/ui    → packages/core
+```
+
+<Note>
+  Use `@brainbox/*` imports for internal packages. The `*` workspace protocol in package.json ensures local linking during development.
+</Note>
+
+## Development Guidelines
+
+### Adding a New Node Type
+
+1. Define in `packages/core/src/registry/nodes/my-node.ts`
+2. Export from `packages/core/src/registry/nodes/index.ts`
+3. Create database migration in `apps/server/src/data/migrations/`
+4. Add UI components and routes
+5. Implement queries and mutations
+
+### Adding a New Sync Type
+
+1. Define schema in `packages/core/src/synchronizers/`
+2. Implement handler in `packages/client/src/handlers/`
+3. Implement broadcaster in `apps/server/src/synchronizers/`
+4. Register in sync engine
+
+### Code Organization Principles
+
+- **Shared types in core** - All TypeScript types in `@brainbox/core`
+- **Validation with Zod** - Runtime schema validation
+- **Type-safe SQL** - Use Kysely for database queries
+- **No circular dependencies** - Enforce with ESLint
+- **Consistent imports** - Use absolute imports with `@brainbox/*`
+
+## Next Steps
+
+- [Set up your development environment](/development/setup)
+- [Run the project locally](/development/running-locally)
+- Review [CLAUDE.md](https://github.com/brainbox/brainbox/blob/main/CLAUDE.md) for detailed architecture
+- Check [CONTRIBUTING.md](https://github.com/brainbox/brainbox/blob/main/CONTRIBUTING.md) for contribution workflow

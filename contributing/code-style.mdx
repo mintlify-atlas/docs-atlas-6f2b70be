@@ -1,0 +1,295 @@
+---
+title: Code Style Guide
+description: Code style and formatting guidelines for Brainbox
+---
+
+Brainbox enforces consistent code style across the entire codebase using ESLint and Prettier.
+
+## Automated Formatting
+
+All code is automatically formatted with Prettier. Git hooks enforce formatting before commits.
+
+### Prettier Configuration
+
+```json
+{
+  "semi": true,
+  "trailingComma": "es5",
+  "singleQuote": true,
+  "printWidth": 80,
+  "tabWidth": 2
+}
+```
+
+### Running Prettier
+
+```bash
+npm run format       # Format all files
+npm run format:check # Check formatting without modifying
+```
+
+<Tip>
+  Configure your editor to format on save using Prettier to avoid formatting issues.
+</Tip>
+
+## ESLint Configuration
+
+Brainbox uses ESLint with TypeScript support and import ordering rules.
+
+### Core Rules
+
+- **TypeScript ESLint**: Recommended rules with strict typing
+- **Import Plugin**: Enforces consistent import ordering
+- **Prettier Integration**: Disables conflicting ESLint rules
+
+### Import Ordering
+
+Imports are automatically ordered in the following groups:
+
+1. Built-in Node.js modules
+2. External dependencies
+3. Internal `@brainbox/*` packages
+4. Parent, sibling, and index imports
+
+Imports within each group are alphabetically sorted with blank lines between groups.
+
+**Example:**
+
+```typescript
+import { readFile } from 'fs/promises';
+import path from 'path';
+
+import express from 'express';
+import { z } from 'zod';
+
+import { createNode } from '@brainbox/client/mutations';
+import { openDatabase } from '@brainbox/client/databases';
+import { queryNodes } from '@brainbox/client/queries';
+
+import { config } from '../config';
+import { logger } from './logger';
+```
+
+### Running ESLint
+
+```bash
+npm run lint  # Lint all packages
+```
+
+<Note>
+  ESLint errors will prevent commits via git hooks. Fix all linting issues before committing.
+</Note>
+
+## TypeScript Guidelines
+
+### Strict Mode
+
+Strict mode is enabled across all packages. This includes:
+
+- No implicit `any` types
+- Strict null checks
+- Strict function types
+- No unused locals or parameters (unless prefixed with `_`)
+
+### Type Organization
+
+Shared types belong in `@brainbox/core`:
+
+```typescript
+import type { Node, NodeType } from '@brainbox/core';
+```
+
+### Runtime Validation
+
+Use Zod for runtime validation and schema definition:
+
+```typescript
+import { z } from 'zod';
+
+const userSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  name: z.string(),
+});
+
+type User = z.infer<typeof userSchema>;
+```
+
+### Type-Safe Queries
+
+Use Kysely for type-safe SQL queries:
+
+```typescript
+import { db } from './database';
+
+const users = await db
+  .selectFrom('users')
+  .select(['id', 'email', 'name'])
+  .where('active', '=', true)
+  .execute();
+```
+
+## React Guidelines
+
+### Component Style
+
+Use functional components with hooks:
+
+```typescript
+import { useState } from 'react';
+
+export function Counter() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <button onClick={() => setCount(count + 1)}>
+      Count: {count}
+    </button>
+  );
+}
+```
+
+### Avoid Unnecessary Effects
+
+Don't use `useEffect` for transformations or calculations. Derive state in render:
+
+**Bad:**
+
+```typescript
+const [fullName, setFullName] = useState('');
+
+useEffect(() => {
+  setFullName(`${firstName} ${lastName}`);
+}, [firstName, lastName]);
+```
+
+**Good:**
+
+```typescript
+const fullName = `${firstName} ${lastName}`;
+```
+
+### Use Effects Only for External Systems
+
+Use `useEffect` only for synchronizing with external systems:
+
+```typescript
+useEffect(() => {
+  const handleOnline = () => console.log('Online');
+  window.addEventListener('online', handleOnline);
+  return () => window.removeEventListener('online', handleOnline);
+}, []);
+```
+
+### Server State Management
+
+Use TanStack Query for server state:
+
+```typescript
+import { useQuery } from '@tanstack/react-query';
+
+function UserProfile({ userId }: { userId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['user', userId],
+    queryFn: () => fetchUser(userId),
+  });
+
+  if (isLoading) return <Spinner />;
+  return <div>{data.name}</div>;
+}
+```
+
+### Accessibility
+
+Follow WAI-ARIA guidelines:
+
+- Use semantic HTML elements
+- Add ARIA labels for icon-only buttons
+- Ensure keyboard navigation works
+- Maintain visible focus indicators
+
+```typescript
+<button aria-label="Close dialog" onClick={onClose}>
+  <XIcon />
+</button>
+```
+
+## CSS and Styling
+
+### TailwindCSS v4
+
+All styling uses TailwindCSS v4:
+
+```typescript
+<div className="flex items-center gap-2 rounded-lg bg-gray-100 p-4">
+  <UserIcon className="h-5 w-5" />
+  <span className="text-sm font-medium">John Doe</span>
+</div>
+```
+
+### Design Principles
+
+- **Flat design**: Minimal shadows and gradients
+- **No hover scale effects**: Avoid transforms on hover
+- **Consistent spacing**: Use Tailwind spacing scale
+- **Date format**: `DD MMM YYYY` (e.g., "03 Mar 2026")
+- **Time format**: `H:MM AM/PM` (e.g., "9:45 AM")
+
+### Component Library
+
+Use Radix UI primitives from `@brainbox/ui`:
+
+```typescript
+import { Button } from '@brainbox/ui/button';
+import { Dialog } from '@brainbox/ui/dialog';
+```
+
+## General Principles
+
+### No Unnecessary Comments
+
+Write self-documenting code. Avoid comments that explain what code does:
+
+**Bad:**
+
+```typescript
+// Loop through users and filter active ones
+const activeUsers = users.filter(user => user.active);
+```
+
+**Good:**
+
+```typescript
+const activeUsers = users.filter(user => user.active);
+```
+
+Use comments only for explaining why, not what:
+
+```typescript
+// Delay required to allow animation to complete before unmounting
+await sleep(300);
+```
+
+### Simple, Focused Solutions
+
+- Prefer simple implementations over clever ones
+- Keep functions small and focused
+- Avoid premature abstraction
+- Read existing code before modifying
+
+### Prefer Editing Over Creating
+
+Always prefer editing existing files over creating new ones. Maintain consistency with existing patterns.
+
+## Code Review Checklist
+
+Before submitting a PR, verify:
+
+- [ ] All TypeScript strict mode checks pass
+- [ ] ESLint shows no errors
+- [ ] Prettier formatting is applied
+- [ ] No unused imports or variables
+- [ ] Imports are properly ordered
+- [ ] Tests are included for new functionality
+- [ ] Accessibility requirements are met
+- [ ] Code follows existing patterns in the codebase

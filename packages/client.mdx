@@ -1,0 +1,650 @@
+---
+title: '@brainbox/client'
+description: Client-side sync engine, queries, mutations, and local database
+---
+
+## Overview
+
+The `@brainbox/client` package provides the client-side sync engine, database layer, and data operations for Brainbox. It handles local SQLite storage, WebSocket synchronization, and optimistic updates.
+
+## Installation
+
+```bash
+npm install @brainbox/client
+```
+
+## Package Exports
+
+The package provides multiple entry points:
+
+```typescript
+import { openDatabase } from '@brainbox/client/databases';
+import { queryNodes } from '@brainbox/client/queries';
+import { createSpace } from '@brainbox/client/mutations';
+import { SyncEngine } from '@brainbox/client/services';
+```
+
+## Databases
+
+Local SQLite database management using Kysely.
+
+### openDatabase
+
+Opens or creates a workspace database.
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ParamField path="options" type="DatabaseOptions" optional>
+  Configuration options
+</ParamField>
+
+<ResponseField name="returns" type="Promise<Database>">
+  Kysely database instance
+</ResponseField>
+
+```typescript
+import { openDatabase } from '@brainbox/client/databases';
+
+const db = await openDatabase(workspaceId);
+```
+
+### Database Exports
+
+```typescript
+export { openDatabase } from './app';
+export { getEmojiDatabase } from './emojis';
+export { getIconDatabase } from './icons';
+export { getWorkspaceDatabase } from './workspace';
+```
+
+## Queries
+
+Type-safe queries for fetching data from local database.
+
+### QueryMap Interface
+
+```typescript
+interface QueryMap {
+  'node.get': {
+    input: NodeGetQueryInput;
+    output: LocalNode | null;
+  };
+  'node.search': {
+    input: NodeSearchQueryInput;
+    output: LocalNode[];
+  };
+  'workspace.get': {
+    input: WorkspaceGetQueryInput;
+    output: LocalWorkspace | null;
+  };
+  // ... 40+ query types
+}
+```
+
+### Node Queries
+
+#### node.get
+
+Fetches a single node by ID.
+
+<ParamField path="type" type="'node.get'" required>
+  Query type
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  Node ID to fetch
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Current account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ResponseField name="output" type="LocalNode | null">
+  The node or null if not found
+</ResponseField>
+
+```typescript
+import { queryNode } from '@brainbox/client/queries';
+
+const node = await queryNode({
+  type: 'node.get',
+  nodeId: '01j1234567890abcdefghnd',
+  accountId,
+  workspaceId,
+});
+```
+
+#### node.search
+
+Searches nodes by text content.
+
+<ParamField path="type" type="'node.search'" required>
+  Query type
+</ParamField>
+
+<ParamField path="query" type="string" required>
+  Search query
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Current account ID
+</ParamField>
+
+<ParamField path="limit" type="number" optional>
+  Maximum results (default: 50)
+</ParamField>
+
+<ResponseField name="output" type="LocalNode[]">
+  Array of matching nodes
+</ResponseField>
+
+```typescript
+const results = await queryNode({
+  type: 'node.search',
+  query: 'meeting notes',
+  workspaceId,
+  accountId,
+  limit: 20,
+});
+```
+
+#### node.children.get
+
+Fetches children of a node.
+
+```typescript
+const children = await queryNode({
+  type: 'node.children.get',
+  nodeId: parentId,
+  accountId,
+  workspaceId,
+});
+```
+
+### Database Queries
+
+#### database.list
+
+Lists all databases in a workspace.
+
+```typescript
+const databases = await queryNode({
+  type: 'database.list',
+  workspaceId,
+  accountId,
+});
+```
+
+#### record.list
+
+Lists records in a database.
+
+```typescript
+const records = await queryNode({
+  type: 'record.list',
+  databaseId,
+  workspaceId,
+  accountId,
+  limit: 100,
+  offset: 0,
+});
+```
+
+### File Queries
+
+#### file.list
+
+Lists files in workspace.
+
+```typescript
+const files = await queryNode({
+  type: 'file.list',
+  workspaceId,
+  accountId,
+  limit: 50,
+});
+```
+
+### Message Queries
+
+#### message.list
+
+Lists messages in a channel or chat.
+
+```typescript
+const messages = await queryNode({
+  type: 'message.list',
+  channelId,
+  workspaceId,
+  accountId,
+  limit: 100,
+  before: lastMessageId,
+});
+```
+
+### User Queries
+
+#### user.search
+
+Searches users in workspace.
+
+```typescript
+const users = await queryNode({
+  type: 'user.search',
+  query: 'john',
+  workspaceId,
+  accountId,
+});
+```
+
+### QueryError
+
+```typescript
+class QueryError extends Error {
+  constructor(public code: QueryErrorCode, message: string);
+}
+
+enum QueryErrorCode {
+  Unknown = 'unknown',
+  AccountNotFound = 'account_not_found',
+  WorkspaceNotFound = 'workspace_not_found',
+  ApiError = 'api_error',
+}
+```
+
+## Mutations
+
+Type-safe mutations for creating, updating, and deleting data.
+
+### MutationMap Interface
+
+```typescript
+interface MutationMap {
+  'space.create': {
+    input: SpaceCreateMutationInput;
+    output: SpaceCreateMutationOutput;
+  };
+  'page.create': {
+    input: PageCreateMutationInput;
+    output: PageCreateMutationOutput;
+  };
+  'node.reaction.create': {
+    input: NodeReactionCreateMutationInput;
+    output: NodeReactionCreateMutationOutput;
+  };
+  // ... 70+ mutation types
+}
+```
+
+### Node Mutations
+
+#### page.create
+
+Creates a new page.
+
+<ParamField path="type" type="'page.create'" required>
+  Mutation type
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ParamField path="parentId" type="string" required>
+  Parent node ID
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Page name
+</ParamField>
+
+<ParamField path="index" type="string" optional>
+  Fractional index for ordering
+</ParamField>
+
+<ResponseField name="output" type="{ nodeId: string }">
+  Created page ID
+</ResponseField>
+
+```typescript
+import { mutate } from '@brainbox/client/mutations';
+
+const result = await mutate({
+  type: 'page.create',
+  accountId,
+  workspaceId,
+  parentId: spaceId,
+  name: 'New Page',
+});
+
+if (result.success) {
+  console.log('Created page:', result.output.nodeId);
+}
+```
+
+#### page.update
+
+Updates page attributes.
+
+```typescript
+const result = await mutate({
+  type: 'page.update',
+  accountId,
+  workspaceId,
+  nodeId: pageId,
+  name: 'Updated Name',
+  emoji: '📄',
+});
+```
+
+#### page.delete
+
+Deletes a page.
+
+```typescript
+const result = await mutate({
+  type: 'page.delete',
+  accountId,
+  workspaceId,
+  nodeId: pageId,
+});
+```
+
+### Database Mutations
+
+#### database.create
+
+Creates a new database.
+
+```typescript
+const result = await mutate({
+  type: 'database.create',
+  accountId,
+  workspaceId,
+  parentId: spaceId,
+  name: 'Tasks',
+});
+```
+
+#### field.create
+
+Adds a field to a database.
+
+```typescript
+const result = await mutate({
+  type: 'field.create',
+  accountId,
+  workspaceId,
+  databaseId,
+  name: 'Status',
+  fieldType: 'select',
+});
+```
+
+#### record.create
+
+Creates a record in a database.
+
+```typescript
+const result = await mutate({
+  type: 'record.create',
+  accountId,
+  workspaceId,
+  databaseId,
+  index: '0',
+});
+```
+
+#### record.field-value.set
+
+Sets a field value on a record.
+
+```typescript
+const result = await mutate({
+  type: 'record.field-value.set',
+  accountId,
+  workspaceId,
+  recordId,
+  fieldId,
+  value: 'In Progress',
+});
+```
+
+### Reaction Mutations
+
+#### node.reaction.create
+
+Adds a reaction to a node.
+
+<ParamField path="type" type="'node.reaction.create'" required>
+  Mutation type
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Account ID
+</ParamField>
+
+<ParamField path="workspaceId" type="string" required>
+  Workspace ID
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  Node to react to
+</ParamField>
+
+<ParamField path="reaction" type="string" required>
+  Emoji reaction
+</ParamField>
+
+<ResponseField name="output" type="{ success: boolean }">
+  Success status
+</ResponseField>
+
+```typescript
+const result = await mutate({
+  type: 'node.reaction.create',
+  accountId,
+  workspaceId,
+  nodeId: pageId,
+  reaction: '👍',
+});
+```
+
+### File Mutations
+
+#### file.create
+
+Uploads a file.
+
+```typescript
+const result = await mutate({
+  type: 'file.create',
+  accountId,
+  workspaceId,
+  parentId: folderId,
+  file: fileBlob,
+  name: 'document.pdf',
+});
+```
+
+### Authentication Mutations
+
+#### email.login
+
+Login with email and password.
+
+```typescript
+const result = await mutate({
+  type: 'email.login',
+  email: 'user@example.com',
+  password: 'password123',
+});
+```
+
+#### email.register
+
+Register new account.
+
+```typescript
+const result = await mutate({
+  type: 'email.register',
+  email: 'user@example.com',
+  password: 'password123',
+  name: 'John Doe',
+});
+```
+
+### MutationResult
+
+```typescript
+type MutationResult<T extends MutationInput> =
+  | SuccessMutationResult<T>
+  | ErrorMutationResult;
+
+type SuccessMutationResult<T> = {
+  success: true;
+  output: MutationMap[T['type']]['output'];
+};
+
+type ErrorMutationResult = {
+  success: false;
+  error: {
+    code: MutationErrorCode;
+    message: string;
+  };
+};
+```
+
+### MutationError
+
+```typescript
+class MutationError extends Error {
+  constructor(public code: MutationErrorCode, message: string);
+}
+
+enum MutationErrorCode {
+  Unknown = 'unknown',
+  ApiError = 'api_error',
+  AccountNotFound = 'account_not_found',
+  NodeNotFound = 'node_not_found',
+  SpaceCreateForbidden = 'space_create_forbidden',
+  FileInvalid = 'file_invalid',
+  StorageLimitExceeded = 'storage_limit_exceeded',
+  // ... 50+ error codes
+}
+```
+
+## Services
+
+Core services for sync, metadata, and file management.
+
+### SyncEngine
+
+Manages real-time synchronization over WebSocket.
+
+```typescript
+import { SyncEngine } from '@brainbox/client/services';
+
+const syncEngine = new SyncEngine({
+  workspaceId,
+  accountId,
+  serverUrl: 'wss://api.brainbox.ai',
+});
+
+await syncEngine.connect();
+syncEngine.subscribe('nodes.updates', { rootId: spaceId });
+await syncEngine.disconnect();
+```
+
+### MetadataService
+
+Manages app-specific metadata.
+
+```typescript
+import { MetadataService } from '@brainbox/client/services';
+
+const metadata = new MetadataService(accountId);
+await metadata.set('lastWorkspace', workspaceId);
+const lastWorkspace = await metadata.get('lastWorkspace');
+```
+
+### FileSystem
+
+Abstract filesystem for web and desktop.
+
+```typescript
+import { FileSystem } from '@brainbox/client/services';
+
+const fs = new FileSystem();
+await fs.writeFile(path, data);
+const data = await fs.readFile(path);
+```
+
+### AssetService
+
+Manages file uploads and downloads.
+
+```typescript
+import { AssetService } from '@brainbox/client/services';
+
+const assets = new AssetService(workspaceId);
+await assets.upload(file);
+const url = await assets.getUrl(fileId);
+```
+
+## Handlers
+
+Sync handlers for processing server updates.
+
+```typescript
+export { handleNodesUpdates } from './nodes-updates';
+export { handleDocumentUpdates } from './document-updates';
+export { handleUsers } from './users';
+export { handleNodeReactions } from './node-reactions';
+export { handleNodeInteractions } from './node-interactions';
+export { handleCollaborations } from './collaborations';
+```
+
+## Types
+
+### LocalNode
+
+```typescript
+type LocalNode = {
+  id: string;
+  type: NodeType;
+  parentId: string;
+  rootId: string;
+  attributes: NodeAttributes;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string | null;
+  updatedBy: string | null;
+};
+```
+
+### LocalWorkspace
+
+```typescript
+type LocalWorkspace = {
+  id: string;
+  name: string;
+  avatar: string | null;
+  createdAt: string;
+  role: WorkspaceRole;
+};
+```

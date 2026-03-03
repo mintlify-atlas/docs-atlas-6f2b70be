@@ -1,0 +1,456 @@
+---
+title: '@brainbox/core'
+description: Shared types, utilities, and node models for Brainbox
+---
+
+## Overview
+
+The `@brainbox/core` package provides shared types, utilities, node models, and business logic used across all Brainbox packages. It defines the core data structures for workspaces, nodes, documents, and synchronization.
+
+## Installation
+
+```bash
+npm install @brainbox/core
+```
+
+## Exports
+
+```typescript
+import * as Core from '@brainbox/core';
+
+// Or import specific modules
+import { generateId, IdType, NodeModel } from '@brainbox/core';
+```
+
+## ID Generation
+
+Utilities for generating type-safe unique identifiers using ULID.
+
+### generateId
+
+Generates a new unique identifier for a specific type.
+
+<ParamField path="type" type="IdType" required>
+  The type of ID to generate (Account, Workspace, User, Node, etc.)
+</ParamField>
+
+<ResponseField name="returns" type="string">
+  A unique ID string with the type suffix
+</ResponseField>
+
+```typescript
+import { generateId, IdType } from '@brainbox/core';
+
+const workspaceId = generateId(IdType.Workspace); // '01j1234567890abcdefghwc'
+const nodeId = generateId(IdType.Node); // '01j1234567890abcdefghnd'
+```
+
+### isIdOfType
+
+Checks if an ID belongs to a specific type.
+
+<ParamField path="id" type="string" required>
+  The ID to check
+</ParamField>
+
+<ParamField path="type" type="IdType" required>
+  The expected type
+</ParamField>
+
+<ResponseField name="returns" type="boolean">
+  True if the ID matches the type
+</ResponseField>
+
+```typescript
+import { isIdOfType, IdType } from '@brainbox/core';
+
+const isWorkspace = isIdOfType('01j1234567890abcdefghwc', IdType.Workspace); // true
+```
+
+### getIdType
+
+Extracts the type from an ID.
+
+<ParamField path="id" type="string" required>
+  The ID to extract type from
+</ParamField>
+
+<ResponseField name="returns" type="IdType">
+  The ID type
+</ResponseField>
+
+```typescript
+import { getIdType, IdType } from '@brainbox/core';
+
+const type = getIdType('01j1234567890abcdefghwc'); // IdType.Workspace
+```
+
+### IdType Enum
+
+```typescript
+enum IdType {
+  Account = 'ac',
+  Workspace = 'wc',
+  User = 'us',
+  Space = 'sp',
+  Page = 'pg',
+  Channel = 'ch',
+  Chat = 'ct',
+  Node = 'nd',
+  Message = 'ms',
+  Database = 'db',
+  Record = 'rc',
+  Folder = 'fl',
+  DatabaseView = 'dv',
+  Field = 'fd',
+  File = 'fi',
+  // ... and more
+}
+```
+
+## Node Models
+
+Node models define the schema, permissions, and behavior for each node type.
+
+### Node Types
+
+<ParamField path="Space" type="NodeModel">
+  Top-level workspace container
+</ParamField>
+
+<ParamField path="Folder" type="NodeModel">
+  Organizes pages and other nodes
+</ParamField>
+
+<ParamField path="Page" type="NodeModel">
+  Rich text document with CRDT support
+</ParamField>
+
+<ParamField path="Database" type="NodeModel">
+  Structured data collection with fields and records
+</ParamField>
+
+<ParamField path="DatabaseView" type="NodeModel">
+  Filtered/sorted view of a database
+</ParamField>
+
+<ParamField path="Record" type="NodeModel">
+  Row in a database
+</ParamField>
+
+<ParamField path="Field" type="NodeModel">
+  Column definition in a database
+</ParamField>
+
+<ParamField path="Channel" type="NodeModel">
+  Public discussion channel
+</ParamField>
+
+<ParamField path="Chat" type="NodeModel">
+  Private chat conversation
+</ParamField>
+
+<ParamField path="Message" type="NodeModel">
+  Message in a channel or chat
+</ParamField>
+
+<ParamField path="File" type="NodeModel">
+  Uploaded file attachment
+</ParamField>
+
+### NodeModel Interface
+
+```typescript
+interface NodeModel {
+  type: string;
+  attributesSchema: z.ZodType;
+  documentSchema?: z.ZodType;
+  canCreate: (context: CanCreateNodeContext) => boolean;
+  canUpdateAttributes: (context: CanUpdateAttributesContext) => boolean;
+  canUpdateDocument: (context: CanUpdateDocumentContext) => boolean;
+  canDelete: (context: CanDeleteNodeContext) => boolean;
+  canReact: (context: CanReactNodeContext) => boolean;
+  extractText: (id: string, attributes: NodeAttributes) => NodeText | null;
+  extractMentions: (id: string, attributes: NodeAttributes) => Mention[];
+}
+```
+
+### getNodeModel
+
+Retrieve the model for a specific node type.
+
+<ParamField path="type" type="NodeType" required>
+  Node type (space, page, database, etc.)
+</ParamField>
+
+<ResponseField name="returns" type="NodeModel">
+  The node model with schema and permissions
+</ResponseField>
+
+```typescript
+import { getNodeModel } from '@brainbox/core';
+
+const pageModel = getNodeModel('page');
+const canCreate = pageModel.canCreate(context);
+```
+
+### Node Structure
+
+```typescript
+type Node = {
+  id: string;
+  type: NodeType;
+  parentId: string;
+  rootId: string;
+  attributes: NodeAttributes;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string | null;
+  updatedBy: string | null;
+};
+```
+
+## Node Utilities
+
+### extractNodeCollaborators
+
+Extracts collaborators and their roles from node attributes.
+
+<ParamField path="attributes" type="NodeAttributes | NodeAttributes[]" required>
+  Node attributes
+</ParamField>
+
+<ResponseField name="returns" type="Record<string, NodeRole>">
+  Map of user IDs to roles
+</ResponseField>
+
+```typescript
+import { extractNodeCollaborators } from '@brainbox/core';
+
+const collaborators = extractNodeCollaborators(node.attributes);
+// { 'user123': 'admin', 'user456': 'member' }
+```
+
+### extractNodeName
+
+Extracts the display name from node attributes.
+
+<ParamField path="attributes" type="NodeAttributes" required>
+  Node attributes
+</ParamField>
+
+<ResponseField name="returns" type="string | null">
+  The node name or null
+</ResponseField>
+
+```typescript
+import { extractNodeName } from '@brainbox/core';
+
+const name = extractNodeName(node.attributes); // 'My Page'
+```
+
+### extractNodeRole
+
+Determines the effective role for a collaborator on a node.
+
+<ParamField path="tree" type="Node | Node[]" required>
+  Node ancestry tree
+</ParamField>
+
+<ParamField path="collaboratorId" type="string" required>
+  User ID to check
+</ParamField>
+
+<ParamField path="workspaceRole" type="WorkspaceRole" optional>
+  User's workspace-level role
+</ParamField>
+
+<ResponseField name="returns" type="NodeRole | null">
+  The effective role (admin, member, viewer)
+</ResponseField>
+
+```typescript
+import { extractNodeRole } from '@brainbox/core';
+
+const role = extractNodeRole(tree, userId, workspaceRole);
+if (role === 'admin') {
+  // User can edit
+}
+```
+
+### generateFractionalIndex
+
+Generates a fractional index for positioning between two items.
+
+<ParamField path="previous" type="string | null" optional>
+  Previous item's index
+</ParamField>
+
+<ParamField path="next" type="string | null" optional>
+  Next item's index
+</ParamField>
+
+<ResponseField name="returns" type="string">
+  Fractional index string
+</ResponseField>
+
+```typescript
+import { generateFractionalIndex } from '@brainbox/core';
+
+const newIndex = generateFractionalIndex(prevIndex, nextIndex);
+```
+
+## Mutations
+
+Mutation types for sync operations.
+
+### Mutation Types
+
+```typescript
+type Mutation =
+  | CreateNodeMutation
+  | UpdateNodeMutation
+  | DeleteNodeMutation
+  | CreateNodeReactionMutation
+  | DeleteNodeReactionMutation
+  | NodeInteractionSeenMutation
+  | NodeInteractionOpenedMutation
+  | UpdateDocumentMutation;
+```
+
+### CreateNodeMutation
+
+```typescript
+type CreateNodeMutation = {
+  id: string;
+  type: 'node.create';
+  createdAt: string;
+  data: {
+    nodeId: string;
+    updateId: string;
+    createdAt: string;
+    data: string; // Encoded CRDT update
+  };
+};
+```
+
+### UpdateNodeMutation
+
+```typescript
+type UpdateNodeMutation = {
+  id: string;
+  type: 'node.update';
+  createdAt: string;
+  data: {
+    nodeId: string;
+    updateId: string;
+    createdAt: string;
+    data: string; // Encoded CRDT update
+  };
+};
+```
+
+### UpdateDocumentMutation
+
+```typescript
+type UpdateDocumentMutation = {
+  id: string;
+  type: 'document.update';
+  createdAt: string;
+  data: {
+    documentId: string;
+    updateId: string;
+    createdAt: string;
+    data: string; // Encoded CRDT update
+  };
+};
+```
+
+## Synchronizers
+
+Synchronizer definitions for real-time sync.
+
+### SynchronizerMap Interface
+
+```typescript
+interface SynchronizerMap {
+  'nodes.updates': {
+    input: NodesUpdatesSyncInput;
+    data: NodesUpdatesData;
+  };
+  'document.updates': {
+    input: DocumentUpdatesSyncInput;
+    data: DocumentUpdatesData;
+  };
+  'users': {
+    input: UsersSyncInput;
+    data: UsersData;
+  };
+  'node.reactions': {
+    input: NodeReactionsSyncInput;
+    data: NodeReactionsData;
+  };
+  'node.interactions': {
+    input: NodeInteractionsSyncInput;
+    data: NodeInteractionsData;
+  };
+  'node.tombstones': {
+    input: NodeTombstonesSyncInput;
+    data: NodeTombstonesData;
+  };
+  'collaborations': {
+    input: CollaborationsSyncInput;
+    data: CollaborationsData;
+  };
+}
+
+type SynchronizerInput = SynchronizerMap[keyof SynchronizerMap]['input'];
+```
+
+## Type Definitions
+
+### WorkspaceRole
+
+```typescript
+type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer';
+```
+
+### NodeRole
+
+```typescript
+type NodeRole = 'admin' | 'member' | 'viewer';
+```
+
+### MutationStatus
+
+```typescript
+enum MutationStatus {
+  OK = 200,
+  CREATED = 201,
+  BAD_REQUEST = 400,
+  UNAUTHORIZED = 401,
+  FORBIDDEN = 403,
+  NOT_FOUND = 404,
+  CONFLICT = 409,
+  METHOD_NOT_ALLOWED = 405,
+  INTERNAL_SERVER_ERROR = 500,
+}
+```
+
+## Constants
+
+```typescript
+// Export from lib/constants
+export const MAX_FILE_SIZE: number;
+export const SUPPORTED_FILE_TYPES: string[];
+export const DEFAULT_PAGE_SIZE: number;
+```
+
+## Utilities
+
+```typescript
+// Export from lib/utils
+export function debounce<T>(fn: T, delay: number): T;
+export function throttle<T>(fn: T, delay: number): T;
+export function clamp(value: number, min: number, max: number): number;
+```

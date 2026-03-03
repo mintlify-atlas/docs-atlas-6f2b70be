@@ -1,0 +1,397 @@
+---
+title: 'Chat'
+description: 'Real-time messaging with channels, direct messages, and rich content'
+icon: 'comments'
+---
+
+Brainbox includes real-time chat functionality for team communication. Create channels for group discussions or send direct messages to individuals.
+
+## Chat Types
+
+Brainbox supports two types of chat conversations:
+
+<CardGroup cols={2}>
+  <Card title="Channels" icon="hashtag">
+    Group conversations for teams and projects. Public or private with configurable membership.
+  </Card>
+  
+  <Card title="Direct Messages" icon="user">
+    One-on-one conversations between workspace members, including self-chat for personal notes.
+  </Card>
+</CardGroup>
+
+## Channels
+
+Channels are persistent chat rooms for team discussions:
+
+### Creating Channels
+
+<Steps>
+  <Step title="Open channels sidebar">
+    Click the **Channels** section in your workspace sidebar.
+  </Step>
+  
+  <Step title="Create new channel">
+    Click the **+** button next to Channels.
+  </Step>
+  
+  <Step title="Configure channel">
+    - **Name** - Channel identifier (e.g., "general", "project-alpha")
+    - **Visibility** - Public (all members can join) or Private (invite-only)
+    - **Collaborators** - Initial channel members and their roles
+  </Step>
+  
+  <Step title="Start chatting">
+    Send your first message to kick off the conversation.
+  </Step>
+</Steps>
+
+### Channel Structure
+
+```typescript
+{
+  type: "channel",
+  name: "project-alpha",
+  avatar: "🚀",
+  parentId: "space_xyz",
+  visibility: "public" | "private",
+  collaborators: {
+    "user_abc": "admin",
+    "user_def": "member",
+    "user_ghi": "viewer"
+  }
+}
+```
+
+### Channel Permissions
+
+Channels have role-based access control:
+
+| Role | View | Send Messages | Add Members | Edit Channel | Delete |
+|------|------|---------------|-------------|--------------|--------|
+| **Admin** | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **Member** | ✓ | ✓ | ✗ | ✗ | ✗ |
+| **Viewer** | ✓ | ✓ | ✗ | ✗ | ✗ |
+
+<Info>
+  Channel admins can modify collaborators, rename the channel, and delete it. Members and viewers can view and send messages but cannot manage the channel.
+</Info>
+
+### Public vs Private Channels
+
+<Tabs>
+  <Tab title="Public Channels">
+    **Public channels** are visible to all workspace members:
+    
+    - Appear in the channels list for everyone
+    - Any member can join without invitation
+    - Great for company-wide announcements, general chat, or open discussions
+    
+    <Note>
+      Public channels still require workspace membership to access. They are not publicly accessible outside your workspace.
+    </Note>
+  </Tab>
+  
+  <Tab title="Private Channels">
+    **Private channels** are invitation-only:
+    
+    - Only visible to channel members
+    - Require explicit invitation to join
+    - Perfect for sensitive discussions, client projects, or executive teams
+    
+    <Warning>
+      Private channel members cannot be changed by regular members. Only channel admins and workspace admins can manage collaborators.
+    </Warning>
+  </Tab>
+</Tabs>
+
+## Direct Messages
+
+Direct messages (DMs) are private 1-on-1 conversations:
+
+### Starting a DM
+
+<Steps>
+  <Step title="Find a user">
+    Click the **Direct Messages** section in the sidebar.
+  </Step>
+  
+  <Step title="Start conversation">
+    Select a user from your workspace to begin chatting.
+  </Step>
+  
+  <Step title="Self-chat">
+    You can also message yourself for personal notes and reminders.
+  </Step>
+</Steps>
+
+### DM Structure
+
+```typescript
+{
+  type: "chat",
+  collaborators: {
+    "user_abc": "admin",
+    "user_def": "admin"  // Both users have equal permissions
+  }
+}
+```
+
+<Info>
+  Direct messages support 1 or 2 collaborators. Single collaborator creates a self-chat, while two collaborators create a standard DM.
+</Info>
+
+## Messages
+
+Messages are the core content units in channels and DMs:
+
+### Message Types
+
+<Tabs>
+  <Tab title="Standard Messages">
+    Regular text messages with optional formatting and attachments.
+    
+    ```typescript
+    {
+      type: "message",
+      subtype: "standard",
+      parentId: "channel_abc",
+      content: {
+        "block_1": {
+          id: "block_1",
+          type: "paragraph",
+          content: [{ type: "text", text: "Hello team!" }],
+          index: "a0"
+        }
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Questions">
+    Messages marked as questions for Q&A threads.
+    
+    ```typescript
+    {
+      type: "message",
+      subtype: "question",
+      content: { /* blocks */ }
+    }
+    ```
+    
+    <Note>
+      Questions can have linked answer messages for structured knowledge sharing.
+    </Note>
+  </Tab>
+  
+  <Tab title="Answers">
+    Responses to question messages.
+    
+    ```typescript
+    {
+      type: "message",
+      subtype: "answer",
+      referenceId: "message_question_xyz",
+      content: { /* blocks */ }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Message Content
+
+Messages support rich content with blocks:
+
+<CardGroup cols={2}>
+  <Card title="Text" icon="align-left">
+    Formatted text with bold, italic, code, and links
+  </Card>
+  
+  <Card title="Code Blocks" icon="code">
+    Syntax-highlighted code snippets
+  </Card>
+  
+  <Card title="Lists" icon="list">
+    Ordered and unordered lists
+  </Card>
+  
+  <Card title="Mentions" icon="at">
+    @mention other users to notify them
+  </Card>
+</CardGroup>
+
+### File Attachments
+
+Messages can include file attachments:
+
+<Steps>
+  <Step title="Click attach button">
+    Use the paperclip icon in the message composer.
+  </Step>
+  
+  <Step title="Select files">
+    Choose files from your device to upload.
+  </Step>
+  
+  <Step title="Send message">
+    Files upload with your message.
+  </Step>
+</Steps>
+
+See [Files](/features/files) for more details on file handling.
+
+### Message Context
+
+Messages can reference nodes from your workspace:
+
+```typescript
+{
+  type: "message",
+  content: { /* blocks */ },
+  selectedContextNodeIds: [
+    "page_abc",
+    "database_def",
+    "record_ghi"
+  ]
+}
+```
+
+<Info>
+  Context nodes provide additional information or references for AI-assisted features and conversation context.
+</Info>
+
+## Message Reactions
+
+React to messages with emoji:
+
+- Click the reaction button on any message
+- Select an emoji
+- See who reacted with each emoji
+- Remove your reaction by clicking it again
+
+<Note>
+  All channel and DM participants (viewers and above) can add reactions to messages.
+</Note>
+
+## Message Permissions
+
+| Action | Creator | Channel Admin | Others |
+|--------|---------|---------------|--------|
+| **View** | ✓ | ✓ | ✓ (if member) |
+| **Edit** | ✓ | ✗ | ✗ |
+| **Delete** | ✓ | ✓ | ✗ |
+| **React** | ✓ | ✓ | ✓ (if viewer+) |
+
+<Warning>
+  Only message creators can edit their messages. Channel admins can delete any message, but regular members can only delete their own.
+</Warning>
+
+## Real-Time Updates
+
+Chat messages sync in real-time across all connected clients:
+
+<CardGroup cols={2}>
+  <Card title="Instant Delivery" icon="bolt">
+    Messages appear immediately for all online users
+  </Card>
+  
+  <Card title="Typing Indicators" icon="ellipsis">
+    See when others are composing messages
+  </Card>
+  
+  <Card title="Read Receipts" icon="check-double">
+    Track message delivery and read status
+  </Card>
+  
+  <Card title="Offline Queueing" icon="inbox">
+    Messages queue locally and send when reconnected
+  </Card>
+</CardGroup>
+
+## Offline Chat
+
+Chat works offline with local-first architecture:
+
+<Steps>
+  <Step title="View cached messages">
+    Previously loaded messages remain accessible offline.
+  </Step>
+  
+  <Step title="Compose offline">
+    Write messages that queue in your local database.
+  </Step>
+  
+  <Step title="Automatic sync">
+    When reconnected, queued messages send automatically.
+  </Step>
+  
+  <Step title="Conflict resolution">
+    CRDTs handle concurrent messages from multiple users.
+  </Step>
+</Steps>
+
+<Info>
+  See [Collaboration](/features/collaboration) for details on offline sync and conflict resolution.
+</Info>
+
+## Notifications
+
+Stay updated on new messages:
+
+- **Desktop notifications** - System notifications for new messages
+- **Unread badges** - Visual indicators on channels with new messages
+- **Mentions** - Highlighted when someone @mentions you
+- **DM alerts** - Special notifications for direct messages
+
+## Search
+
+Find messages across all channels:
+
+- Search message content
+- Filter by channel, user, or date
+- Search file attachments
+- Find mentions and references
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use channels for topics">
+    Create dedicated channels for projects, teams, or topics rather than having all discussions in one place. This keeps conversations organized and searchable.
+  </Accordion>
+  
+  <Accordion title="@mention for attention">
+    Use @mentions when you need someone's specific attention or input. This sends them a notification and highlights the message.
+  </Accordion>
+  
+  <Accordion title="Threads for discussions">
+    Use question/answer message types for structured Q&A or threaded discussions to keep related messages together.
+  </Accordion>
+  
+  <Accordion title="Reference context">
+    Link to relevant pages, databases, or records when discussing them in chat to provide easy access.
+  </Accordion>
+  
+  <Accordion title="Archive inactive channels">
+    Delete or archive channels that are no longer active to keep your sidebar clean and organized.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Files" icon="file" href="/features/files">
+    Learn about file attachments in messages
+  </Card>
+  
+  <Card title="Collaboration" icon="users" href="/features/collaboration">
+    Understand real-time sync
+  </Card>
+  
+  <Card title="Pages" icon="file-lines" href="/features/pages">
+    Reference pages in conversations
+  </Card>
+  
+  <Card title="Databases" icon="database" href="/features/databases">
+    Share database records in chat
+  </Card>
+</CardGroup>

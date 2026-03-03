@@ -1,0 +1,636 @@
+---
+title: '@brainbox/ui'
+description: React component library built with Radix UI and TailwindCSS
+---
+
+## Overview
+
+The `@brainbox/ui` package provides a comprehensive React component library for building Brainbox interfaces. Built on Radix UI primitives and styled with TailwindCSS v4, it offers accessible, customizable components.
+
+## Installation
+
+```bash
+npm install @brainbox/ui
+```
+
+## Dependencies
+
+- React 19
+- Radix UI primitives
+- TailwindCSS v4
+- Framer Motion (animations)
+- TipTap (rich text editing)
+- Lucide React (icons)
+
+## Core Components
+
+### Buttons
+
+#### Button
+
+Primary button component with variants and sizes.
+
+<ParamField path="variant" type="'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link'" default="'default'">
+  Visual style variant
+</ParamField>
+
+<ParamField path="size" type="'default' | 'sm' | 'lg' | 'icon' | 'icon-sm' | 'icon-lg'" default="'default'">
+  Button size
+</ParamField>
+
+<ParamField path="asChild" type="boolean" default="false">
+  Render as child component (Slot pattern)
+</ParamField>
+
+```tsx
+import { Button } from '@brainbox/ui';
+
+<Button variant="default">Save</Button>
+<Button variant="destructive">Delete</Button>
+<Button variant="outline" size="sm">Cancel</Button>
+<Button variant="ghost" size="icon"><SearchIcon /></Button>
+```
+
+### Dialogs
+
+#### Dialog
+
+Modal dialog with overlay and animations.
+
+```tsx
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@brainbox/ui';
+
+<Dialog>
+  <DialogTrigger asChild>
+    <Button>Open Dialog</Button>
+  </DialogTrigger>
+  <DialogContent size="md">
+    <DialogHeader>
+      <DialogTitle>Delete Page</DialogTitle>
+      <DialogDescription>
+        This action cannot be undone.
+      </DialogDescription>
+    </DialogHeader>
+    <DialogFooter>
+      <Button variant="outline">Cancel</Button>
+      <Button variant="destructive">Delete</Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+```
+
+<ParamField path="size" type="'sm' | 'md' | 'lg'" default="'md'">
+  Dialog width (480px / 640px / 800px)
+</ParamField>
+
+<ParamField path="showCloseButton" type="boolean" default="true">
+  Show close button in top-right
+</ParamField>
+
+#### AlertDialog
+
+Dialog for confirming destructive actions.
+
+```tsx
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@brainbox/ui';
+
+<AlertDialog>
+  <AlertDialogTrigger asChild>
+    <Button variant="destructive">Delete</Button>
+  </AlertDialogTrigger>
+  <AlertDialogContent>
+    <AlertDialogHeader>
+      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+      <AlertDialogDescription>
+        This will permanently delete the page.
+      </AlertDialogDescription>
+    </AlertDialogHeader>
+    <AlertDialogFooter>
+      <AlertDialogCancel>Cancel</AlertDialogCancel>
+      <AlertDialogAction>Continue</AlertDialogAction>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
+```
+
+### Forms
+
+#### Input
+
+Text input with validation states.
+
+```tsx
+import { Input } from '@brainbox/ui';
+
+<Input
+  type="text"
+  placeholder="Page name"
+  aria-invalid={errors.name ? true : undefined}
+/>
+```
+
+#### Textarea
+
+Multi-line text input.
+
+```tsx
+import { Textarea } from '@brainbox/ui';
+
+<Textarea
+  placeholder="Description"
+  rows={4}
+/>
+```
+
+#### Checkbox
+
+Checkbox with label support.
+
+```tsx
+import { Checkbox } from '@brainbox/ui';
+
+<Checkbox
+  checked={isChecked}
+  onCheckedChange={setIsChecked}
+/>
+```
+
+#### Form
+
+Form components with react-hook-form integration.
+
+```tsx
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@brainbox/ui';
+import { useForm } from 'react-hook-form';
+
+const form = useForm();
+
+<Form {...form}>
+  <form onSubmit={form.handleSubmit(onSubmit)}>
+    <FormField
+      control={form.control}
+      name="name"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>Name</FormLabel>
+          <FormControl>
+            <Input {...field} />
+          </FormControl>
+          <FormDescription>Display name for the page</FormDescription>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  </form>
+</Form>
+```
+
+### Menus
+
+#### DropdownMenu
+
+Contextual menu triggered by button.
+
+```tsx
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from '@brainbox/ui';
+
+<DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button variant="ghost" size="icon"><MoreIcon /></Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent align="end">
+    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+    <DropdownMenuSeparator />
+    <DropdownMenuItem>Edit</DropdownMenuItem>
+    <DropdownMenuItem>Duplicate</DropdownMenuItem>
+    <DropdownMenuSeparator />
+    <DropdownMenuItem className="text-destructive">
+      Delete
+    </DropdownMenuItem>
+  </DropdownMenuContent>
+</DropdownMenu>
+```
+
+#### ContextMenu
+
+Right-click context menu.
+
+```tsx
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+} from '@brainbox/ui';
+
+<ContextMenu>
+  <ContextMenuTrigger>
+    <div>Right-click me</div>
+  </ContextMenuTrigger>
+  <ContextMenuContent>
+    <ContextMenuItem>Copy</ContextMenuItem>
+    <ContextMenuItem>Paste</ContextMenuItem>
+    <ContextMenuItem>Delete</ContextMenuItem>
+  </ContextMenuContent>
+</ContextMenu>
+```
+
+### Overlays
+
+#### Popover
+
+Floating content overlay.
+
+```tsx
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from '@brainbox/ui';
+
+<Popover>
+  <PopoverTrigger asChild>
+    <Button variant="outline">Open</Button>
+  </PopoverTrigger>
+  <PopoverContent>
+    <div className="space-y-2">
+      <h4 className="font-medium">Settings</h4>
+      <p className="text-sm text-muted">Configure options</p>
+    </div>
+  </PopoverContent>
+</Popover>
+```
+
+#### Tooltip
+
+Hover tooltip with delay.
+
+```tsx
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from '@brainbox/ui';
+
+<TooltipProvider>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Button variant="ghost" size="icon"><InfoIcon /></Button>
+    </TooltipTrigger>
+    <TooltipContent>
+      <p>Additional information</p>
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
+```
+
+#### HoverCard
+
+Rich hover preview card.
+
+```tsx
+import {
+  HoverCard,
+  HoverCardTrigger,
+  HoverCardContent,
+} from '@brainbox/ui';
+
+<HoverCard>
+  <HoverCardTrigger asChild>
+    <a href="#">@username</a>
+  </HoverCardTrigger>
+  <HoverCardContent>
+    <div className="space-y-1">
+      <h4 className="font-semibold">John Doe</h4>
+      <p className="text-sm">Product Designer</p>
+    </div>
+  </HoverCardContent>
+</HoverCard>
+```
+
+### Layout
+
+#### Tabs
+
+Tabbed interface.
+
+```tsx
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@brainbox/ui';
+
+<Tabs defaultValue="general">
+  <TabsList>
+    <TabsTrigger value="general">General</TabsTrigger>
+    <TabsTrigger value="members">Members</TabsTrigger>
+    <TabsTrigger value="settings">Settings</TabsTrigger>
+  </TabsList>
+  <TabsContent value="general">
+    General content
+  </TabsContent>
+  <TabsContent value="members">
+    Members content
+  </TabsContent>
+</Tabs>
+```
+
+#### Separator
+
+Visual divider.
+
+```tsx
+import { Separator } from '@brainbox/ui';
+
+<Separator orientation="horizontal" />
+<Separator orientation="vertical" className="h-4" />
+```
+
+#### ScrollArea
+
+Custom scrollbar container.
+
+```tsx
+import { ScrollArea } from '@brainbox/ui';
+
+<ScrollArea className="h-72">
+  <div className="p-4">
+    {/* Long content */}
+  </div>
+</ScrollArea>
+```
+
+#### Collapsible
+
+Expandable/collapsible section.
+
+```tsx
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from '@brainbox/ui';
+
+<Collapsible>
+  <CollapsibleTrigger asChild>
+    <Button variant="ghost">Toggle</Button>
+  </CollapsibleTrigger>
+  <CollapsibleContent>
+    <div className="p-4">
+      Hidden content
+    </div>
+  </CollapsibleContent>
+</Collapsible>
+```
+
+### Feedback
+
+#### Progress
+
+Progress bar indicator.
+
+```tsx
+import { Progress } from '@brainbox/ui';
+
+<Progress value={65} />
+```
+
+#### Spinner
+
+Loading spinner.
+
+```tsx
+import { Spinner } from '@brainbox/ui';
+
+<Spinner size="md" />
+```
+
+#### Badge
+
+Status badge.
+
+```tsx
+import { Badge } from '@brainbox/ui';
+
+<Badge variant="default">New</Badge>
+<Badge variant="secondary">Beta</Badge>
+<Badge variant="destructive">Error</Badge>
+```
+
+#### Skeleton
+
+Loading skeleton.
+
+```tsx
+import { Skeleton } from '@brainbox/ui';
+
+<Skeleton className="h-4 w-full" />
+<Skeleton className="h-8 w-32 rounded-full" />
+```
+
+## Animation Components
+
+### Motion Components
+
+#### MotionDiv
+
+Animated div with presets.
+
+<ParamField path="preset" type="'fadeIn' | 'slideIn' | 'scaleIn' | 'slideUp'" optional>
+  Animation preset
+</ParamField>
+
+```tsx
+import { MotionDiv } from '@brainbox/ui';
+
+<MotionDiv preset="fadeIn">
+  Content
+</MotionDiv>
+```
+
+#### AnimatePresence
+
+Animate components on mount/unmount.
+
+```tsx
+import { AnimatePresence, MotionDiv } from '@brainbox/ui';
+
+<AnimatePresence>
+  {isVisible && (
+    <MotionDiv preset="fadeIn">
+      Content
+    </MotionDiv>
+  )}
+</AnimatePresence>
+```
+
+#### AnimatedList
+
+Stagger animation for lists.
+
+```tsx
+import { AnimatedList } from '@brainbox/ui';
+
+<AnimatedList>
+  {items.map((item) => (
+    <div key={item.id}>{item.name}</div>
+  ))}
+</AnimatedList>
+```
+
+### Motion Utilities
+
+Pre-configured animation variants and transitions.
+
+```typescript
+import { variants, transition } from '@brainbox/ui/lib/motion';
+
+// Available variants
+variants.fadeIn
+variants.slideIn
+variants.scaleIn
+variants.slideUp
+
+// Available transitions
+transition.fast
+transition.normal
+transition.slow
+```
+
+## Hooks
+
+### useReducedMotion
+
+Detect user's motion preference.
+
+```tsx
+import { useReducedMotion } from '@brainbox/ui';
+
+const Component = () => {
+  const prefersReducedMotion = useReducedMotion();
+  
+  return (
+    <MotionDiv
+      animate={prefersReducedMotion ? {} : { opacity: 1 }}
+    />
+  );
+};
+```
+
+## Theme
+
+### ThemeProvider
+
+Provides theme context (light/dark mode).
+
+```tsx
+import { ThemeProvider } from '@brainbox/ui';
+
+<ThemeProvider defaultTheme="system">
+  <App />
+</ThemeProvider>
+```
+
+### ThemeToggle
+
+Toggle between light/dark themes.
+
+```tsx
+import { ThemeToggle } from '@brainbox/ui';
+
+<ThemeToggle />
+```
+
+## Utilities
+
+### cn
+
+Merge Tailwind classes.
+
+```typescript
+import { cn } from '@brainbox/ui/lib/utils';
+
+const className = cn(
+  'base-class',
+  condition && 'conditional-class',
+  'override-class'
+);
+```
+
+### Spacing
+
+Standardized spacing values.
+
+```typescript
+import { spacing } from '@brainbox/ui/lib/spacing';
+
+spacing.xs  // 0.25rem
+spacing.sm  // 0.5rem
+spacing.md  // 1rem
+spacing.lg  // 1.5rem
+spacing.xl  // 2rem
+```
+
+## Accessibility
+
+All components follow WAI-ARIA best practices:
+
+- Full keyboard navigation support
+- Screen reader friendly
+- Focus management
+- ARIA attributes
+- Semantic HTML
+
+## Styling
+
+Components use TailwindCSS v4 with design tokens:
+
+```css
+/* Colors */
+bg-bg-base          /* Base background */
+bg-bg-elevated      /* Elevated surfaces */
+bg-bg-muted         /* Muted backgrounds */
+
+text-fg-default     /* Default text */
+text-fg-muted       /* Muted text */
+text-fg-on-accent   /* Text on accent */
+
+border-border-default  /* Default borders */
+
+/* Semantic colors */
+bg-accent-default
+bg-error
+bg-success
+bg-warning
+```

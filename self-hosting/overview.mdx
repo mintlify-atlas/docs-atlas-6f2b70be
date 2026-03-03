@@ -1,0 +1,200 @@
+---
+title: Self-Hosting Overview
+description: Requirements and options for self-hosting Brainbox
+---
+
+Brainbox is a local-first collaboration workspace that you can self-host on your own infrastructure. This gives you full control over your data, privacy, and deployment environment.
+
+## What is Brainbox?
+
+Brainbox is a privacy-focused alternative to Notion that works offline. It features:
+
+- Rich text editor with blocks, formatting, and embeds
+- Custom databases with multiple views (table, kanban, calendar)
+- Real-time chat and collaboration
+- File storage and management
+- Offline-first architecture with automatic sync
+- CRDT-based collaboration using Yjs
+
+## Architecture
+
+**Local-first sync model:**
+
+1. Each client maintains a local SQLite database
+2. Changes are saved locally first (works offline)
+3. Background sync to server when connected
+4. Conflict resolution handled by CRDTs via Yjs
+
+**Technology stack:**
+
+- **Frontend**: React + TypeScript + TailwindCSS v4
+- **Backend**: Fastify + WebSocket for real-time sync
+- **Database**: PostgreSQL with pgvector extension
+- **Cache**: Redis (or Valkey)
+- **Storage**: S3-compatible object storage (MinIO)
+- **Desktop**: Electron with better-sqlite3
+
+## System Requirements
+
+### Minimum Requirements
+
+- **CPU**: 2 cores
+- **RAM**: 4 GB
+- **Storage**: 20 GB (plus space for user data)
+- **OS**: Linux, macOS, or Windows with Docker support
+
+### Recommended Requirements
+
+- **CPU**: 4+ cores
+- **RAM**: 8+ GB
+- **Storage**: 50+ GB SSD
+- **Network**: Stable internet connection for multi-user sync
+
+### Required Services
+
+Brainbox requires the following infrastructure components:
+
+<Note>
+  All required services are included in the Docker Compose and Kubernetes
+  configurations. You don't need to set them up separately.
+</Note>
+
+| Service                         | Purpose                     | Version          |
+| ------------------------------- | --------------------------- | ---------------- |
+| PostgreSQL with pgvector        | Primary database            | 17+              |
+| Redis/Valkey                    | Message queue and cache     | 8.1+             |
+| S3-compatible storage (MinIO)   | File and avatar storage     | Latest           |
+
+## Deployment Options
+
+### Docker Compose (Recommended)
+
+Best for small to medium deployments on a single server.
+
+**Pros:**
+- Quick setup (5 minutes)
+- All services bundled together
+- Easy to maintain and update
+- Built-in PostgreSQL, Redis, and MinIO
+
+**Best for:**
+- Personal use or small teams (1-50 users)
+- Testing and development
+- Single-server deployments
+
+[Get started with Docker →](/self-hosting/docker)
+
+### Kubernetes/Helm
+
+Best for production deployments requiring scalability and high availability.
+
+**Pros:**
+- Horizontal scaling
+- High availability
+- Advanced deployment strategies
+- Resource management
+
+**Best for:**
+- Large teams (50+ users)
+- Production environments
+- Multi-region deployments
+- Organizations with existing Kubernetes infrastructure
+
+[Get started with Kubernetes →](/self-hosting/kubernetes)
+
+## Server Modes
+
+Brainbox server supports two operational modes:
+
+### Standalone Mode
+
+```bash
+SERVER_MODE=standalone
+```
+
+Single server instance handling all requests. Recommended for most deployments.
+
+### Cluster Mode
+
+```bash
+SERVER_MODE=cluster
+```
+
+Multiple server instances with Redis-based coordination. Use this mode when:
+- Running multiple replicas in Kubernetes
+- Load balancing across multiple servers
+- Requiring high availability
+
+## Security Considerations
+
+<Warning>
+  Always change default passwords before deploying to production. Use strong,
+  randomly generated passwords for all services.
+</Warning>
+
+### Required Security Steps
+
+1. **Change default passwords** for:
+   - PostgreSQL database
+   - Redis/Valkey
+   - MinIO root credentials
+
+2. **Configure HTTPS** using:
+   - Reverse proxy (nginx, Caddy, Traefik)
+   - Let's Encrypt for SSL certificates
+
+3. **Set secure environment variables**:
+   - Generate strong `JWT_SECRET`
+   - Use environment-specific secrets
+   - Never commit `.env` files to version control
+
+4. **Network security**:
+   - Restrict database ports to internal network only
+   - Use firewall rules to limit access
+   - Enable PostgreSQL SSL in production
+
+## Account Verification
+
+Brainbox supports three account verification modes:
+
+```bash
+ACCOUNT_VERIFICATION_TYPE=automatic  # automatic | manual | email
+```
+
+- **automatic**: New accounts are verified immediately (good for private instances)
+- **manual**: Admin must manually verify each account
+- **email**: Email verification required (requires SMTP configuration)
+
+## Storage Limits
+
+Configure storage limits to prevent abuse:
+
+```bash
+# Workspace limits (optional)
+WORKSPACE_STORAGE_LIMIT=10737418240   # 10 GB
+WORKSPACE_MAX_FILE_SIZE=104857600     # 100 MB
+
+# User limits
+USER_STORAGE_LIMIT=10737418240        # 10 GB
+USER_MAX_FILE_SIZE=104857600          # 100 MB
+```
+
+Leave empty for unlimited storage (not recommended for production).
+
+## Next Steps
+
+Choose your deployment method:
+
+<CardGroup cols={2}>
+  <Card title="Docker Compose" icon="docker" href="/self-hosting/docker">
+    Quick setup for single-server deployments
+  </Card>
+  <Card title="Kubernetes" icon="cloud" href="/self-hosting/kubernetes">
+    Scalable deployment for production environments
+  </Card>
+</CardGroup>
+
+After deployment:
+
+1. [Configure environment variables →](/self-hosting/configuration)
+2. [Troubleshoot common issues →](/self-hosting/troubleshooting)

@@ -1,0 +1,382 @@
+---
+title: Authentication
+description: Authentication and account management endpoints
+---
+
+## Email Registration
+
+<Card title="POST /api/client/accounts/emails/register" icon="user-plus">
+  Register a new account with email and password
+</Card>
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  User's full name (1-100 characters, trimmed)
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  Valid email address
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  Password meeting the following requirements:
+  - Minimum 8 characters
+  - Maximum 128 characters
+  - At least one uppercase letter
+  - At least one lowercase letter
+  - At least one number
+</ParamField>
+
+### Request Schema
+
+```typescript
+export const emailRegisterInputSchema = z.object({
+  name: z
+    .string({ error: 'Name is required' })
+    .min(1, { message: 'Name is required' })
+    .max(100, { message: 'Name must be at most 100 characters' })
+    .transform((name) => name.trim()),
+  email: z.string({ error: 'Email is required' }).email({
+    message: 'Invalid email address',
+  }),
+  password: passwordSchema,
+});
+```
+
+### Response
+
+<ResponseField name="type" type="string">
+  Either `"success"` or `"verify"`
+</ResponseField>
+
+#### Success Response (type: "success")
+
+<ResponseField name="account" type="object">
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Account ID
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Account name
+    </ResponseField>
+    <ResponseField name="email" type="string">
+      Account email
+    </ResponseField>
+    <ResponseField name="avatar" type="string | null">
+      Avatar URL or ID
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="workspaces" type="array">
+  Array of workspace objects the user has access to
+</ResponseField>
+
+<ResponseField name="deviceId" type="string">
+  Unique device identifier
+</ResponseField>
+
+<ResponseField name="token" type="string">
+  JWT authentication token
+</ResponseField>
+
+#### Verify Response (type: "verify")
+
+<ResponseField name="id" type="string">
+  OTP verification ID
+</ResponseField>
+
+<ResponseField name="expiresAt" type="date">
+  OTP expiration timestamp
+</ResponseField>
+
+### Error Codes
+
+- `400` - `EmailAlreadyExists`: Email already registered
+- `400` - `AccountCreationFailed`: Failed to create account
+- `400` - `AccountPendingVerification`: Account requires verification
+- `429` - `TooManyRequests`: Rate limit exceeded
+
+---
+
+## Email Login
+
+<Card title="POST /api/client/accounts/emails/login" icon="right-to-bracket">
+  Authenticate with email and password
+</Card>
+
+### Request Body
+
+<ParamField body="email" type="string" required>
+  Email address
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  Account password
+</ParamField>
+
+### Request Schema
+
+```typescript
+export const emailLoginInputSchema = z.object({
+  email: z.string({ error: 'Email is required' }).email({
+    message: 'Invalid email address',
+  }),
+  password: z.string({ error: 'Password is required' }),
+});
+```
+
+### Response
+
+Same as registration - returns discriminated union of `success` or `verify` type.
+
+### Error Codes
+
+- `400` - `EmailOrPasswordIncorrect`: Invalid credentials
+- `400` - `AccountPendingVerification`: Account not verified
+- `429` - `TooManyRequests`: Rate limit exceeded
+
+---
+
+## Google Login
+
+<Card title="POST /api/client/accounts/google/login" icon="google">
+  Authenticate with Google OAuth
+</Card>
+
+### Request Body
+
+<ParamField body="code" type="string" required>
+  Google OAuth authorization code
+</ParamField>
+
+### Request Schema
+
+```typescript
+export const googleLoginInputSchema = z.object({
+  code: z.string(),
+});
+```
+
+### Response
+
+Same as email login - returns discriminated union of `success` or `verify` type.
+
+### Behavior
+
+- If account exists with email: Updates Google ID and activates if email verified
+- If account doesn't exist: Creates new account with Google profile data
+- Downloads and stores Google profile picture as avatar (500x500px JPEG)
+- Only allows images from trusted Google domains
+
+### Error Codes
+
+- `400` - `GoogleAuthFailed`: Google authentication failed
+- `400` - `AccountCreationFailed`: Failed to create account
+
+---
+
+## Email Verification
+
+<Card title="POST /api/client/accounts/emails/verify" icon="check">
+  Verify email with OTP code
+</Card>
+
+### Request Body
+
+<ParamField body="id" type="string" required>
+  OTP verification ID (from registration response)
+</ParamField>
+
+<ParamField body="otp" type="string" required>
+  One-time password code
+</ParamField>
+
+### Request Schema
+
+```typescript
+export const emailVerifyInputSchema = z.object({
+  id: z.string(),
+  otp: z.string(),
+});
+```
+
+### Response
+
+Returns `LoginOutput` with account and authentication token.
+
+### Error Codes
+
+- `400` - `AccountOtpInvalid`: Invalid or expired OTP
+- `404` - `AccountNotFound`: Account not found
+
+---
+
+## Password Reset (Initiate)
+
+<Card title="POST /api/client/accounts/emails/passwords/reset/init" icon="key">
+  Request password reset OTP
+</Card>
+
+### Request Body
+
+<ParamField body="email" type="string" required>
+  Account email address
+</ParamField>
+
+### Request Schema
+
+```typescript
+export const emailPasswordResetInitInputSchema = z.object({
+  email: z.string().email(),
+});
+```
+
+### Response
+
+<ResponseField name="id" type="string">
+  OTP verification ID
+</ResponseField>
+
+<ResponseField name="expiresAt" type="date">
+  OTP expiration timestamp
+</ResponseField>
+
+### Behavior
+
+- Always returns 200 even if email doesn't exist (security best practice)
+- Sends OTP email if account exists
+- OTP expires based on server configuration
+
+### Error Codes
+
+- `429` - `TooManyRequests`: Rate limit exceeded
+
+---
+
+## Password Reset (Complete)
+
+<Card title="POST /api/client/accounts/emails/passwords/reset/complete" icon="lock">
+  Complete password reset with OTP and new password
+</Card>
+
+### Request Body
+
+<ParamField body="id" type="string" required>
+  OTP verification ID
+</ParamField>
+
+<ParamField body="otp" type="string" required>
+  One-time password code
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  New password (must meet password requirements)
+</ParamField>
+
+### Request Schema
+
+```typescript
+export const emailPasswordResetCompleteInputSchema = z.object({
+  id: z.string(),
+  otp: z.string(),
+  password: passwordSchema, // Same validation as registration
+});
+```
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Always `true` on successful reset
+</ResponseField>
+
+### Behavior
+
+- Updates account password
+- **Logs out all devices** for security
+- User must log in again with new password
+
+### Error Codes
+
+- `400` - `AccountOtpInvalid`: Invalid or expired OTP
+- `400` - `AccountOtpInvalid`: Account registration incomplete
+
+---
+
+## Logout
+
+<Card title="DELETE /api/client/accounts/logout" icon="right-from-bracket">
+  Logout current device
+</Card>
+
+### Authentication
+
+Requires valid JWT token in `Authorization` header.
+
+### Response
+
+Returns empty object `{}`.
+
+### Behavior
+
+- Deletes current device from database
+- Publishes `device.deleted` event
+- Invalidates JWT token for this device
+
+---
+
+## Account Sync
+
+<Card title="POST /api/client/accounts/sync" icon="sync">
+  Sync account data and workspaces
+</Card>
+
+### Authentication
+
+Requires valid JWT token in `Authorization` header.
+
+### Response
+
+<ResponseField name="account" type="object">
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Account ID
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Account name
+    </ResponseField>
+    <ResponseField name="email" type="string">
+      Account email
+    </ResponseField>
+    <ResponseField name="avatar" type="string | null">
+      Avatar URL or ID
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="workspaces" type="array">
+  Array of workspace objects where user has active role
+</ResponseField>
+
+### Response Schema
+
+```typescript
+export const accountSyncOutputSchema = z.object({
+  account: accountOutputSchema,
+  workspaces: z.array(workspaceOutputSchema),
+  token: z.string().optional(),
+});
+```
+
+### Behavior
+
+- Updates device metadata (last sync time, IP, platform, version)
+- Returns all active workspaces where user role is not `none`
+- Filters out `UserStatus.Removed` users
+
+### Error Codes
+
+- `404` - `AccountNotFound`: Account not found
+- `404` - `DeviceNotFound`: Device not found
+- `401` - Unauthorized: Invalid or expired token

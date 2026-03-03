@@ -1,0 +1,517 @@
+---
+title: Environment Variables
+description: Complete reference for configuring Brainbox server settings
+---
+
+Brainbox server behavior is controlled through environment variables. This page documents all available configuration options.
+
+## General Server Settings
+
+### Node Environment
+
+```bash
+NODE_ENV=production  # production | development
+```
+
+Controls the runtime environment. Use `production` for deployments.
+
+### Server Identity
+
+```bash
+SERVER_NAME="Brainbox Local"
+SERVER_AVATAR=
+```
+
+- `SERVER_NAME`: Display name shown in the UI
+- `SERVER_AVATAR`: URL to server avatar image (optional)
+
+### Server Mode
+
+```bash
+SERVER_MODE=standalone  # standalone | cluster
+```
+
+- **standalone**: Single server instance (default)
+- **cluster**: Multiple instances with Redis coordination (required for Kubernetes replicas)
+
+<Note>
+  Use `cluster` mode when running multiple server replicas in Kubernetes or behind
+  a load balancer. This enables proper WebSocket synchronization across instances.
+</Note>
+
+### Port Configuration
+
+```bash
+PORT=3000  # Default server port
+```
+
+The port where the Fastify server listens. Default is 3000.
+
+### Path Prefix
+
+```bash
+SERVER_PATH_PREFIX=/api  # Optional
+```
+
+Base path for all API routes. Useful when deploying behind a reverse proxy.
+
+### CORS Settings
+
+```bash
+SERVER_CORS_ORIGIN=http://localhost:4000
+SERVER_CORS_MAX_AGE=7200
+```
+
+- `SERVER_CORS_ORIGIN`: Allowed origin for CORS requests
+- `SERVER_CORS_MAX_AGE`: CORS preflight cache duration in seconds
+
+## Logging Configuration
+
+```bash
+LOGGING_LEVEL=info  # trace | debug | info | warn | error | fatal | silent
+```
+
+Controls log verbosity:
+
+- **trace**: Most verbose, includes all debug information
+- **debug**: Detailed debugging information
+- **info**: General informational messages (default)
+- **warn**: Warning messages only
+- **error**: Error messages only
+- **fatal**: Critical errors only
+- **silent**: No logging
+
+<Note>
+  For production, use `info` or `warn`. For development debugging, use `debug` or:
+  ```bash
+  DEBUG=brainbox:* npm run dev
+  ```
+</Note>
+
+## Account Configuration
+
+### Verification Type
+
+```bash
+ACCOUNT_VERIFICATION_TYPE=automatic  # automatic | manual | email
+```
+
+- **automatic**: New accounts are verified immediately (best for private instances)
+- **manual**: Admin must manually approve each account
+- **email**: Email verification required (requires SMTP configuration)
+
+### OTP Timeout
+
+```bash
+ACCOUNT_OTP_TIMEOUT=600  # seconds
+```
+
+One-time password expiration time in seconds. Default is 600 (10 minutes).
+
+### Google OAuth
+
+```bash
+ACCOUNT_GOOGLE_ENABLED=true
+ACCOUNT_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+ACCOUNT_GOOGLE_CLIENT_SECRET=your-client-secret
+```
+
+Enable Google sign-in. Obtain credentials from [Google Cloud Console](https://console.cloud.google.com/).
+
+## Storage Limits
+
+### Workspace Limits
+
+```bash
+WORKSPACE_STORAGE_LIMIT=10737418240   # 10 GB in bytes
+WORKSPACE_MAX_FILE_SIZE=104857600     # 100 MB in bytes
+```
+
+Optional limits per workspace. Leave empty for unlimited.
+
+<CodeGroup>
+```bash Common Values
+# 1 GB
+WORKSPACE_STORAGE_LIMIT=1073741824
+
+# 10 GB
+WORKSPACE_STORAGE_LIMIT=10737418240
+
+# 50 GB
+WORKSPACE_STORAGE_LIMIT=53687091200
+
+# 100 MB per file
+WORKSPACE_MAX_FILE_SIZE=104857600
+
+# 500 MB per file
+WORKSPACE_MAX_FILE_SIZE=524288000
+```
+</CodeGroup>
+
+### User Limits
+
+```bash
+USER_STORAGE_LIMIT=10737418240   # 10 GB in bytes
+USER_MAX_FILE_SIZE=104857600     # 100 MB in bytes
+```
+
+Storage limits per user account.
+
+<Warning>
+  Setting unlimited storage (empty values) is not recommended for production.
+  Always configure appropriate limits to prevent abuse.
+</Warning>
+
+## PostgreSQL Configuration
+
+### Connection URL
+
+```bash
+POSTGRES_URL=postgres://colanode_user:postgrespass123@localhost:5432/colanode_db
+```
+
+Full PostgreSQL connection string. Format:
+
+```
+postgres://[user]:[password]@[host]:[port]/[database]
+```
+
+<CodeGroup>
+```bash Docker Compose
+POSTGRES_URL=postgres://colanode_user:postgrespass123@postgres:5432/colanode_db
+```
+
+```bash Kubernetes
+POSTGRES_URL=postgres://postgres:password@my-brainbox-postgresql:5432/colanode_db
+```
+
+```bash External (RDS, Cloud SQL)
+POSTGRES_URL=postgres://admin:password@database.region.rds.amazonaws.com:5432/brainbox
+```
+</CodeGroup>
+
+### PostgreSQL SSL
+
+```bash
+POSTGRES_SSL_REJECT_UNAUTHORIZED=false
+POSTGRES_SSL_CA=/path/to/ca-cert.pem
+POSTGRES_SSL_KEY=/path/to/client-key.pem
+POSTGRES_SSL_CERT=/path/to/client-cert.pem
+```
+
+- `POSTGRES_SSL_REJECT_UNAUTHORIZED`: Set to `false` for self-signed certificates
+- `POSTGRES_SSL_CA`: Path to CA certificate file
+- `POSTGRES_SSL_KEY`: Path to client key file
+- `POSTGRES_SSL_CERT`: Path to client certificate file
+
+<Note>
+  For managed databases (RDS, Cloud SQL, Azure Database), SSL is typically required.
+  Download the CA certificate from your provider and configure accordingly.
+</Note>
+
+## Redis Configuration
+
+### Connection URL
+
+```bash
+REDIS_URL=redis://:your_valkey_password@localhost:6379/0
+```
+
+Redis connection string. Format:
+
+```
+redis://[username]:[password]@[host]:[port]/[db]
+```
+
+<CodeGroup>
+```bash Docker Compose (Valkey)
+REDIS_URL=redis://:your_valkey_password@valkey:6379/0
+```
+
+```bash Kubernetes
+REDIS_URL=redis://:password@my-brainbox-redis-master:6379/0
+```
+
+```bash ElastiCache (AWS)
+REDIS_URL=redis://:password@your-cluster.cache.amazonaws.com:6379/0
+```
+
+```bash No Password
+REDIS_URL=redis://localhost:6379/0
+```
+</CodeGroup>
+
+### Advanced Redis Settings
+
+```bash
+REDIS_DB=0
+REDIS_JOBS_QUEUE_NAME=jobs
+REDIS_JOBS_QUEUE_PREFIX=brainbox
+REDIS_TUS_LOCK_PREFIX=brainbox:tus:lock
+REDIS_TUS_KV_PREFIX=brainbox:tus:kv
+REDIS_EVENTS_CHANNEL=events
+```
+
+- `REDIS_DB`: Database number (0-15)
+- `REDIS_JOBS_QUEUE_NAME`: BullMQ queue name
+- `REDIS_JOBS_QUEUE_PREFIX`: Key prefix for job queues
+- `REDIS_TUS_LOCK_PREFIX`: Lock prefix for TUS uploads
+- `REDIS_TUS_KV_PREFIX`: Key prefix for TUS metadata
+- `REDIS_EVENTS_CHANNEL`: Pub/sub channel for events
+
+<Note>
+  Only modify these if you need custom Redis namespacing or are sharing Redis
+  with other applications.
+</Note>
+
+## S3 Storage Configuration
+
+### MinIO (Self-Hosted)
+
+```bash
+STORAGE_S3_ENDPOINT=http://localhost:9000
+STORAGE_S3_ACCESS_KEY=minioadmin
+STORAGE_S3_SECRET_KEY=your_minio_password
+STORAGE_S3_BUCKET=brainbox
+STORAGE_S3_REGION=us-east-1
+STORAGE_S3_FORCE_PATH_STYLE=true
+```
+
+<CodeGroup>
+```bash Docker Compose
+STORAGE_S3_ENDPOINT=http://minio:9000
+STORAGE_S3_ACCESS_KEY=minioadmin
+STORAGE_S3_SECRET_KEY=your_minio_password
+STORAGE_S3_BUCKET=brainbox
+STORAGE_S3_REGION=us-east-1
+STORAGE_S3_FORCE_PATH_STYLE=true
+```
+
+```bash Kubernetes
+STORAGE_S3_ENDPOINT=http://my-brainbox-minio:9000
+STORAGE_S3_ACCESS_KEY=minioadmin
+STORAGE_S3_SECRET_KEY=password
+STORAGE_S3_BUCKET=brainbox
+STORAGE_S3_REGION=us-east-1
+STORAGE_S3_FORCE_PATH_STYLE=true
+```
+</CodeGroup>
+
+### AWS S3
+
+```bash
+STORAGE_S3_ENDPOINT=https://s3.amazonaws.com
+STORAGE_S3_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE
+STORAGE_S3_SECRET_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+STORAGE_S3_BUCKET=brainbox-production
+STORAGE_S3_REGION=us-east-1
+STORAGE_S3_FORCE_PATH_STYLE=false
+```
+
+### Other S3-Compatible Services
+
+<CodeGroup>
+```bash DigitalOcean Spaces
+STORAGE_S3_ENDPOINT=https://nyc3.digitaloceanspaces.com
+STORAGE_S3_ACCESS_KEY=your-access-key
+STORAGE_S3_SECRET_KEY=your-secret-key
+STORAGE_S3_BUCKET=brainbox
+STORAGE_S3_REGION=nyc3
+STORAGE_S3_FORCE_PATH_STYLE=false
+```
+
+```bash Backblaze B2
+STORAGE_S3_ENDPOINT=https://s3.us-west-001.backblazeb2.com
+STORAGE_S3_ACCESS_KEY=your-key-id
+STORAGE_S3_SECRET_KEY=your-application-key
+STORAGE_S3_BUCKET=brainbox
+STORAGE_S3_REGION=us-west-001
+STORAGE_S3_FORCE_PATH_STYLE=false
+```
+
+```bash Cloudflare R2
+STORAGE_S3_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
+STORAGE_S3_ACCESS_KEY=your-access-key
+STORAGE_S3_SECRET_KEY=your-secret-key
+STORAGE_S3_BUCKET=brainbox
+STORAGE_S3_REGION=auto
+STORAGE_S3_FORCE_PATH_STYLE=false
+```
+</CodeGroup>
+
+<Note>
+  Set `STORAGE_S3_FORCE_PATH_STYLE=true` for MinIO and some S3-compatible services.
+  Use `false` for AWS S3 and most managed S3 services.
+</Note>
+
+## SMTP Email Configuration
+
+### Basic SMTP
+
+```bash
+SMTP_ENABLED=false
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_EMAIL_FROM=noreply@brainbox.local
+SMTP_EMAIL_FROM_NAME=Brainbox
+```
+
+<CodeGroup>
+```bash Gmail
+SMTP_ENABLED=true
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_EMAIL_FROM=noreply@yourdomain.com
+SMTP_EMAIL_FROM_NAME=Brainbox
+```
+
+```bash SendGrid
+SMTP_ENABLED=true
+SMTP_HOST=smtp.sendgrid.net
+SMTP_PORT=587
+SMTP_USER=apikey
+SMTP_PASSWORD=your-sendgrid-api-key
+SMTP_EMAIL_FROM=noreply@yourdomain.com
+SMTP_EMAIL_FROM_NAME=Brainbox
+```
+
+```bash Mailgun
+SMTP_ENABLED=true
+SMTP_HOST=smtp.mailgun.org
+SMTP_PORT=587
+SMTP_USER=postmaster@your-domain.mailgun.org
+SMTP_PASSWORD=your-mailgun-password
+SMTP_EMAIL_FROM=noreply@yourdomain.com
+SMTP_EMAIL_FROM_NAME=Brainbox
+```
+
+```bash Mailpit (Testing)
+SMTP_ENABLED=true
+SMTP_HOST=smtp
+SMTP_PORT=1025
+SMTP_USER=
+SMTP_PASSWORD=
+SMTP_EMAIL_FROM=test@brainbox.local
+SMTP_EMAIL_FROM_NAME=Brainbox Test
+```
+</CodeGroup>
+
+<Warning>
+  For Gmail, you must create an [App Password](https://myaccount.google.com/apppasswords)
+  instead of using your regular password. Regular passwords will not work.
+</Warning>
+
+## Example Configurations
+
+### Development (Docker Compose)
+
+```bash .env
+NODE_ENV=development
+SERVER_MODE=standalone
+SERVER_NAME="Brainbox Dev"
+
+# PostgreSQL
+POSTGRES_URL=postgres://colanode_user:postgrespass123@postgres:5432/colanode_db
+
+# Redis
+REDIS_URL=redis://:dev_password@valkey:6379/0
+
+# MinIO
+STORAGE_S3_ENDPOINT=http://minio:9000
+STORAGE_S3_ACCESS_KEY=minioadmin
+STORAGE_S3_SECRET_KEY=minioadmin123
+STORAGE_S3_BUCKET=brainbox
+STORAGE_S3_REGION=us-east-1
+STORAGE_S3_FORCE_PATH_STYLE=true
+
+# Accounts
+ACCOUNT_VERIFICATION_TYPE=automatic
+
+# No limits in dev
+USER_STORAGE_LIMIT=
+USER_MAX_FILE_SIZE=
+```
+
+### Production (Kubernetes with Managed Services)
+
+```bash values-prod.yaml (partial)
+brainbox:
+  config:
+    NODE_ENV: production
+    SERVER_MODE: cluster
+    SERVER_NAME: "Brainbox Production"
+    
+    # Managed PostgreSQL (RDS)
+    POSTGRES_URL: "postgres://admin:password@brainbox.abc123.us-east-1.rds.amazonaws.com:5432/brainbox"
+    POSTGRES_SSL_REJECT_UNAUTHORIZED: "false"
+    
+    # Managed Redis (ElastiCache)
+    REDIS_URL: "redis://:password@brainbox.abc123.cache.amazonaws.com:6379/0"
+    
+    # AWS S3
+    STORAGE_S3_ENDPOINT: "https://s3.amazonaws.com"
+    STORAGE_S3_ACCESS_KEY: "AKIAIOSFODNN7EXAMPLE"
+    STORAGE_S3_SECRET_KEY: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    STORAGE_S3_BUCKET: "brainbox-prod"
+    STORAGE_S3_REGION: "us-east-1"
+    STORAGE_S3_FORCE_PATH_STYLE: "false"
+    
+    # Email verification
+    ACCOUNT_VERIFICATION_TYPE: email
+    
+    # SMTP (SendGrid)
+    SMTP_ENABLED: "true"
+    SMTP_HOST: "smtp.sendgrid.net"
+    SMTP_PORT: "587"
+    SMTP_USER: "apikey"
+    SMTP_PASSWORD: "SG.your-api-key"
+    SMTP_EMAIL_FROM: "noreply@brainbox.com"
+    SMTP_EMAIL_FROM_NAME: "Brainbox"
+    
+    # Storage limits
+    USER_STORAGE_LIMIT: "53687091200"  # 50 GB
+    USER_MAX_FILE_SIZE: "524288000"    # 500 MB
+```
+
+## Environment File Security
+
+<Warning>
+  Never commit `.env` files containing secrets to version control. Always use
+  `.env.example` for templates and `.gitignore` for actual `.env` files.
+</Warning>
+
+### Best Practices
+
+1. **Use strong passwords**: Generate random passwords for all services
+   ```bash
+   openssl rand -base64 32
+   ```
+
+2. **Store secrets securely**:
+   - Use Kubernetes Secrets for K8s deployments
+   - Use AWS Secrets Manager, HashiCorp Vault, etc. for production
+   - Never log or expose secrets in error messages
+
+3. **Rotate credentials regularly**: Change passwords periodically
+
+4. **Limit access**: Only give credentials to services that need them
+
+5. **Use separate environments**: Different credentials for dev/staging/production
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Docker Setup" icon="docker" href="/self-hosting/docker">
+    Deploy with Docker Compose
+  </Card>
+  <Card title="Kubernetes Setup" icon="cloud" href="/self-hosting/kubernetes">
+    Deploy on Kubernetes
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/self-hosting/troubleshooting">
+    Resolve configuration issues
+  </Card>
+</CardGroup>
