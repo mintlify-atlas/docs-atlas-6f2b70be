@@ -1,0 +1,158 @@
+{
+  "projectType": "saas",
+  "projectName": "Brainbox",
+  "projectDescription": "A local-first collaboration workspace you can self-host, offering a privacy-focused alternative to Notion with offline-first real-time collaboration",
+  "theme": "palm",
+  "primaryColor": "#6366f1",
+  "lightColor": "#818cf8",
+  "darkColor": "#4f46e5",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/pages",
+              "features/databases",
+              "features/chat",
+              "features/files",
+              "features/collaboration"
+            ]
+          },
+          {
+            "group": "Self-Hosting",
+            "pages": [
+              "self-hosting/overview",
+              "self-hosting/docker",
+              "self-hosting/kubernetes",
+              "self-hosting/configuration",
+              "self-hosting/troubleshooting"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/local-first",
+              "architecture/sync-engine",
+              "architecture/crdt",
+              "architecture/monorepo"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "development/setup",
+              "development/running-locally",
+              "development/project-structure"
+            ]
+          },
+          {
+            "group": "Core Packages",
+            "pages": [
+              "packages/core",
+              "packages/client",
+              "packages/crdt",
+              "packages/ui"
+            ]
+          },
+          {
+            "group": "Building Features",
+            "pages": [
+              "guides/creating-nodes",
+              "guides/sync-handlers",
+              "guides/api-routes",
+              "guides/ui-components"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "contributing/guidelines",
+              "contributing/code-style",
+              "contributing/testing",
+              "contributing/pull-requests"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Client API",
+            "pages": [
+              "api/client/overview",
+              "api/client/queries",
+              "api/client/mutations",
+              "api/client/commands"
+            ]
+          },
+          {
+            "group": "Node Types",
+            "pages": [
+              "api/nodes/space",
+              "api/nodes/folder",
+              "api/nodes/page",
+              "api/nodes/database",
+              "api/nodes/record",
+              "api/nodes/field",
+              "api/nodes/channel",
+              "api/nodes/message",
+              "api/nodes/file"
+            ]
+          },
+          {
+            "group": "Server API",
+            "pages": [
+              "api/server/authentication",
+              "api/server/workspaces",
+              "api/server/websockets"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Local-first architecture with offline support",
+    "Real-time collaboration using CRDTs (Yjs)",
+    "Rich text editor with Notion-like blocks",
+    "Databases with multiple views (table, kanban, calendar)",
+    "Built-in chat and messaging",
+    "File storage and management",
+    "Self-hostable with Docker and Kubernetes",
+    "Cross-platform (Web and Electron desktop)",
+    "Type-safe with TypeScript and Zod validation",
+    "Monorepo architecture with Turbo"
+  ],
+  "publicApiSurface": [
+    "@brainbox/core - Shared types and utilities",
+    "@brainbox/client - Sync engine, queries, mutations, commands",
+    "@brainbox/crdt - Yjs CRDT implementation",
+    "@brainbox/ui - React component library",
+    "openDatabase() - Initialize client database",
+    "queryNodes() - Query workspace nodes",
+    "createNode() - Create workspace nodes",
+    "updateNode() - Update node attributes",
+    "deleteNode() - Delete workspace nodes",
+    "Node types: space, folder, page, database, database-view, record, field, channel, message, file",
+    "WebSocket sync for real-time collaboration",
+    "REST API for authentication and workspace management"
+  ]
+}
